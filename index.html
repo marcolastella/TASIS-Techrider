@@ -763,195 +763,205 @@ const FB = {
 const fbApp = initializeApp(FB);
 const db = getFirestore(fbApp);
 
-/* ── GEAR CATEGORIES ── */
+/* ─── GEAR CATEGORIES ─────────────────────────────── */
 const GCATS = {
-  microphones:{l:'Microphones',i:'🎙️'},
-  di_boxes:{l:'DI Boxes',i:'◈'},
-  amplifiers:{l:'Amplifiers',i:'🔊'},
-  monitors:{l:'Monitors',i:'◫'},
-  consoles:{l:'Consoles',i:'⊟'},
-  cables:{l:'Cables',i:'⌇'},
-  accessories:{l:'Accessories',i:'⊕'},
-  power:{l:'Power',i:'⚡'},
-  wireless:{l:'Wireless Systems',i:'📡'},
+  microphones:{l:"Microphones",i:"🎙️"},
+  di_boxes:{l:"DI Boxes",i:"◈"},
+  amplifiers:{l:"Amplifiers",i:"🔊"},
+  monitors:{l:"Monitors",i:"◫"},
+  consoles:{l:"Consoles",i:"⊟"},
+  cables:{l:"Cables",i:"⌇"},
+  accessories:{l:"Accessories",i:"⊕"},
+  power:{l:"Power",i:"⚡"},
+  wireless:{l:"Wireless Systems",i:"📡"},
 };
 
-/* ── STATE ── */
+/* ─── STATE ─────────────────────────────────────────── */
 let shows=[], channels={}, gear={}, venues=[], directors=[], activeShow=null;
-let editShowId=null, editCHIdx=null, editGearId=null, editGearCat=null, editVenueId=null, editDirectorId=null, dragSrc=null;
+let editShowId=null, editCHIdx=null, editGearId=null, editGearCat=null;
+let editVenueId=null, editDirectorId=null, dragSrc=null;
 let cms={st:false,ap:false,da:false};
 let unsubShows=null, unsubChannels=null;
-let dbReady=false;
 
-/* ── SYNC BADGE ── */
+/* ─── SYNC BADGE ─────────────────────────────────────── */
 let syncTimer=null;
 function showSync(state,txt){
-  const el=document.getElementById('sync-badge');
+  const el=document.getElementById("sync-badge");
   el.className=state; el.textContent=txt;
   clearTimeout(syncTimer);
-  if(state==='saved') syncTimer=setTimeout(()=>{el.className='idle';},2500);
+  if(state==="saved") syncTimer=setTimeout(()=>{el.className="idle";},2500);
 }
 
-/* ── FIRESTORE HELPERS ── */
-async function fsWrite(col, id, data, subCol, subId){
-  showSync('saving','Saving…');
+/* ─── FIRESTORE HELPERS ──────────────────────────────── */
+async function fsWrite(col,id,data,subCol,subId){
+  showSync("saving","Saving…");
   try{
-    const ref = subCol ? doc(db,col,id,subCol,subId) : doc(db,col,id);
-    await setDoc(ref, data, {merge:true});
-    showSync('saved','Saved ✓');
-  }catch(e){ showSync('error','Error'); console.error(e); }
+    const ref=subCol?doc(db,col,id,subCol,subId):doc(db,col,id);
+    await setDoc(ref,data,{merge:true});
+    showSync("saved","Saved ✓");
+  }catch(e){showSync("error","Error"); console.error(e);}
 }
-async function fsDel(col, id, subCol, subId){
-  showSync('saving','Deleting…');
+async function fsDel(col,id,subCol,subId){
+  showSync("saving","Deleting…");
   try{
-    const ref = subCol ? doc(db,col,id,subCol,subId) : doc(db,col,id);
+    const ref=subCol?doc(db,col,id,subCol,subId):doc(db,col,id);
     await deleteDoc(ref);
-    showSync('saved','Deleted ✓');
-  }catch(e){ showSync('error','Error'); console.error(e); }
+    showSync("saved","Deleted ✓");
+  }catch(e){showSync("error","Error"); console.error(e);}
 }
 
-/* ── BOOT (runs on page load) ── */
+/* ─── BOOT ───────────────────────────────────────────── */
 async function boot(){
-  // Detect if opened as local file (file://) — Firebase won't work
-  if(location.protocol==='file:'){
-    setSplashTxt('error','Open via GitHub Pages or a local server — Firebase does not work with file://');
-    document.getElementById('splash-retry').classList.remove('hidden');
+  if(location.protocol==="file:"){
+    setSplashTxt("error","Open via GitHub Pages — Firebase requires HTTPS, not file://");
+    document.getElementById("splash-retry").classList.remove("hidden");
     return;
   }
-  setSplashTxt('connecting','Connecting to database…');
+  setSplashTxt("connecting","Connecting to database…");
   try{
-    // Single test read with timeout
-    const timeout = new Promise((_,reject)=>setTimeout(()=>reject(new Error('Connection timed out — check your internet connection')),10000));
-    await Promise.race([getDocs(collection(db,'shows')), timeout]);
-    // If that works, load everything in parallel
-    setSplashTxt('connecting','Loading library data…');
-    await Promise.all([loadGear(), loadVenues(), loadDirectors()]);
-    setSplashTxt('online','Database online — ready');
-    dbReady=true;
-    document.getElementById('splash-enter').classList.remove('hidden');
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error("Timed out — check internet")),10000));
+    await Promise.race([getDocs(collection(db,"shows")),timeout]);
+    setSplashTxt("connecting","Loading library…");
+    await Promise.all([loadGear(),loadVenues(),loadDirectors()]);
+    setSplashTxt("online","Database online — ready");
+    document.getElementById("splash-enter").classList.remove("hidden");
     subscribeShows();
   }catch(e){
-    console.error('Boot error:', e);
-    const msg = e.code==='permission-denied'
-      ? 'Firestore rules expired — go to Firebase Console → Firestore → Rules and republish'
-      : 'Connection error: '+e.message;
-    setSplashTxt('error', msg);
-    document.getElementById('splash-retry').classList.remove('hidden');
+    console.error(e);
+    const msg=e.code==="permission-denied"
+      ?"Firestore rules expired — republish rules in Firebase Console"
+      :"Connection error: "+e.message;
+    setSplashTxt("error",msg);
+    document.getElementById("splash-retry").classList.remove("hidden");
   }
 }
 
-function setSplashTxt(state, txt){
-  const dot=document.getElementById('splash-dot');
-  dot.className='splash-dot '+state;
-  document.getElementById('splash-txt').textContent=txt;
+function setSplashTxt(state,txt){
+  document.getElementById("splash-dot").className="splash-dot "+state;
+  document.getElementById("splash-txt").textContent=txt;
 }
 
 window.enterApp=function(){
-  document.getElementById('splash').style.opacity='0';
-  document.getElementById('splash').style.transition='opacity .4s';
-  setTimeout(()=>document.getElementById('splash').classList.add('hidden'),400);
-  document.getElementById('app').classList.remove('hidden');
+  const s=document.getElementById("splash");
+  s.style.transition="opacity .4s";
+  s.style.opacity="0";
+  setTimeout(()=>s.classList.add("hidden"),400);
+  document.getElementById("app").classList.remove("hidden");
   renderShows();
 };
 
+/* ─── REAL-TIME SUBSCRIPTIONS ───────────────────────── */
 function subscribeShows(){
   if(unsubShows) unsubShows();
-  unsubShows=onSnapshot(collection(db,'shows'), snap=>{
+  unsubShows=onSnapshot(collection(db,"shows"),snap=>{
     shows=snap.docs.map(d=>({id:d.id,...d.data()}));
-    shows.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-    if(!document.getElementById('pg-shows').classList.contains('hidden')) renderShows();
+    shows.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+    if(!document.getElementById("pg-shows").classList.contains("hidden")) renderShows();
   },err=>console.error(err));
 }
-
 function subscribeChannels(showId){
   if(unsubChannels){unsubChannels();unsubChannels=null;}
-  unsubChannels=onSnapshot(collection(db,'shows',showId,'channels'), snap=>{
+  unsubChannels=onSnapshot(collection(db,"shows",showId,"channels"),snap=>{
     const list=snap.docs.map(d=>({id:d.id,...d.data()}));
     list.sort((a,b)=>(a.order||0)-(b.order||0));
     channels[showId]=list;
-    if(activeShow===showId && !document.getElementById('pg-channels').classList.contains('hidden')) renderChannels();
+    if(activeShow===showId && !document.getElementById("pg-channels").classList.contains("hidden"))
+      renderChannels();
   },err=>console.error(err));
 }
 
+/* ─── LOAD FUNCTIONS ─────────────────────────────────── */
 async function loadGear(){
   gear={}; Object.keys(GCATS).forEach(k=>{gear[k]=[];});
-  const snap=await getDocs(collection(db,'gear'));
+  const snap=await getDocs(collection(db,"gear"));
   snap.docs.forEach(d=>{
-    const data=d.data(); const cat=data.category||'accessories';
-    // Register unknown categories discovered from DB into GCATS
-    if(!GCATS[cat]){ GCATS[cat]={l:cat.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),i:'⊹'}; }
+    const data=d.data(); const cat=data.category||"accessories";
+    if(!GCATS[cat]) GCATS[cat]={l:cat.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()),i:"⊹"};
     if(!gear[cat]) gear[cat]=[];
     gear[cat].push({id:d.id,...data});
   });
-  Object.keys(gear).forEach(k=>gear[k].sort((a,b)=>(a.name||'').localeCompare(b.name||'')));
+  Object.keys(gear).forEach(k=>gear[k].sort((a,b)=>(a.name||"").localeCompare(b.name||"")));
+}
+async function loadVenues(){
+  const snap=await getDocs(collection(db,"venues"));
+  venues=snap.docs.map(d=>({id:d.id,...d.data()}));
+  venues.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+}
+async function loadDirectors(){
+  const snap=await getDocs(collection(db,"directors"));
+  directors=snap.docs.map(d=>({id:d.id,...d.data()}));
+  directors.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
 }
 
-/* ── NAVIGATION ── */
+/* ─── NAVIGATION ─────────────────────────────────────── */
 window.goShows=function(){
   activeShow=null;
   if(unsubChannels){unsubChannels();unsubChannels=null;}
-  document.getElementById('btn-new-show').classList.remove('hidden');
-  document.getElementById('tb-show-name').classList.add('hidden');
-  document.getElementById('tb-show-name').textContent='';
-  ['channels','inventory','gear','venues','directors'].forEach(x=>document.getElementById('pg-'+x).classList.add('hidden'));
-  document.getElementById('pg-shows').classList.remove('hidden');
-  document.getElementById('sb-production').classList.add('hidden');
-  document.querySelectorAll('.sb-btn').forEach(el=>el.classList.remove('active'));
-  document.getElementById('bc').innerHTML='<span class="bc-item active" onclick="goShows()">Productions</span>';
+  document.getElementById("btn-new-show").classList.remove("hidden");
+  document.getElementById("tb-show-name").classList.add("hidden");
+  document.getElementById("tb-show-name").textContent="";
+  ["channels","inventory","gear","venues","directors"].forEach(x=>
+    document.getElementById("pg-"+x).classList.add("hidden"));
+  document.getElementById("pg-shows").classList.remove("hidden");
+  document.getElementById("sb-production").classList.add("hidden");
+  document.querySelectorAll(".sb-btn").forEach(el=>el.classList.remove("active"));
+  document.getElementById("bc").innerHTML=
+    "<span class=\"bc-item active\" onclick=\"goShows()\">Productions</span>";
   renderShows();
 };
 
 window.openShow=function(id){
   activeShow=id;
   const s=shows.find(x=>x.id===id);
-  document.getElementById('pg-shows').classList.add('hidden');
-  document.getElementById('btn-new-show').classList.add('hidden');
-  document.getElementById('tb-show-name').textContent=s?s.name.toUpperCase():'';
-  document.getElementById('tb-show-name').classList.remove('hidden');
-  document.getElementById('bc').innerHTML=
-    '<span class="bc-item" onclick="goShows()">Productions</span>'+
-    '<span class="bc-arrow"> / </span>'+
-    '<span class="bc-item active">'+(s?s.name:'')+'</span>';
-  document.getElementById('sb-production').classList.remove('hidden');
+  document.getElementById("pg-shows").classList.add("hidden");
+  document.getElementById("btn-new-show").classList.add("hidden");
+  document.getElementById("tb-show-name").textContent=s?s.name.toUpperCase():"";
+  document.getElementById("tb-show-name").classList.remove("hidden");
+  document.getElementById("bc").innerHTML=
+    "<span class=\"bc-item\" onclick=\"goShows()\">Productions</span>"+
+    "<span class=\"bc-arrow\"> / </span>"+
+    "<span class=\"bc-item active\">"+(s?s.name:"")+"</span>";
+  document.getElementById("sb-production").classList.remove("hidden");
   subscribeChannels(id);
-  sv('channels');
+  sv("channels");
 };
 
 window.sv=function(v){
-  ['channels','inventory','gear','venues','directors'].forEach(x=>document.getElementById('pg-'+x).classList.toggle('hidden',x!==v));
-  document.querySelectorAll('.sb-btn').forEach(el=>el.classList.toggle('active',el.dataset.v===v));
-  if(v==='channels') renderChannels();
-  if(v==='inventory') renderInvFull();
-  if(v==='gear') renderGear();
-  if(v==='venues') renderVenues();
-  if(v==='directors') renderDirectors();
+  ["channels","inventory","gear","venues","directors"].forEach(x=>
+    document.getElementById("pg-"+x).classList.toggle("hidden",x!==v));
+  document.querySelectorAll(".sb-btn").forEach(el=>el.classList.toggle("active",el.dataset.v===v));
+  if(v==="channels")  renderChannels();
+  if(v==="inventory") renderInvFull();
+  if(v==="gear")      renderGear();
+  if(v==="venues")    renderVenues();
+  if(v==="directors") renderDirectors();
 };
 
-/* ── SHOWS ── */
+/* ─── SHOWS ──────────────────────────────────────────── */
 function renderShows(){
-  const g=document.getElementById('shows-grid'); g.innerHTML='';
+  const g=document.getElementById("shows-grid"); g.innerHTML="";
   if(!shows.length){
-    g.innerHTML='<div class="empty-state"><div class="empty-icon">◈</div><div class="empty-text">No productions yet — click New Show to get started</div></div>';
+    g.innerHTML="<div class=\"empty-state\"><div class=\"empty-icon\">◈</div><div class=\"empty-text\">No productions yet — click New Show to get started</div></div>";
     return;
   }
   shows.forEach(s=>{
     const cc=(channels[s.id]||[]).length;
-    const el=document.createElement('div'); el.className='show-card';
+    const el=document.createElement("div"); el.className="show-card";
     el.innerHTML=
-      '<div class="show-card-top">'+
-        '<div class="show-card-name">'+s.name+'</div>'+
-        '<div class="show-card-ch">'+cc+' ch</div>'+
-      '</div>'+
-      '<div class="show-card-meta">'+
-        '<div class="show-meta-row"><span class="show-meta-icon">📍</span>'+(s.venue||'—')+'</div>'+
-        '<div class="show-meta-row"><span class="show-meta-icon">📅</span>'+(s.date||'—')+'</div>'+
-        '<div class="show-meta-row"><span class="show-meta-icon">🎬</span>'+(s.director||'—')+' · '+(s.md||'—')+'</div>'+
-      '</div>'+
-      '<div class="show-card-actions">'+
-        '<button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();openShow(\''+s.id+'\')">Open →</button>'+
-        '<button class="btn btn-sm" onclick="event.stopPropagation();openShowModal(\''+s.id+'\')">Edit</button>'+
-        '<button class="btn btn-danger btn-xs" onclick="event.stopPropagation();delShow(\''+s.id+'\')">×</button>'+
-      '</div>';
+      "<div class=\"show-card-top\">"+
+        "<div class=\"show-card-name\">"+s.name+"</div>"+
+        "<div class=\"show-card-ch\">"+cc+" ch</div>"+
+      "</div>"+
+      "<div class=\"show-card-meta\">"+
+        "<div class=\"show-meta-row\"><span class=\"show-meta-icon\">📍</span>"+(s.venue||"—")+"</div>"+
+        "<div class=\"show-meta-row\"><span class=\"show-meta-icon\">📅</span>"+(s.date||"—")+"</div>"+
+        "<div class=\"show-meta-row\"><span class=\"show-meta-icon\">🎬</span>"+(s.director||"—")+" · "+(s.md||"—")+"</div>"+
+      "</div>"+
+      "<div class=\"show-card-actions\">"+
+        "<button class=\"btn btn-primary btn-sm\" style=\"flex:1\" onclick=\"event.stopPropagation();openShow('"+s.id+"')\">Open →</button>"+
+        "<button class=\"btn btn-sm\" onclick=\"event.stopPropagation();openShowModal('"+s.id+"')\">Edit</button>"+
+        "<button class=\"btn btn-danger btn-xs\" onclick=\"event.stopPropagation();delShow('"+s.id+"')\">×</button>"+
+      "</div>";
     g.appendChild(el);
   });
 }
@@ -959,86 +969,83 @@ function renderShows(){
 window.openShowModal=function(id){
   editShowId=id||null;
   const s=id?shows.find(x=>x.id===id):null;
-  document.getElementById('sm-title').textContent=s?'Edit Production':'New Production';
-  document.getElementById('sm-name').value=s?s.name:'';
-  document.getElementById('sm-date').value=s?s.date:'';
+  document.getElementById("sm-title").textContent=s?"Edit Production":"New Production";
+  document.getElementById("sm-name").value=s?s.name:"";
+  document.getElementById("sm-date").value=s?s.date:"";
 
-  // Populate venue select
-  const vsel=document.getElementById('sm-venue');
-  vsel.innerHTML='<option value="">— Select venue —</option>';
+  // Venue select
+  const vs=document.getElementById("sm-venue");
+  vs.innerHTML="<option value=''>— Select venue —</option>";
   venues.forEach(v=>{
-    const opt=document.createElement('option');
-    opt.value=v.name; opt.textContent=v.name+(v.city?' — '+v.city:'');
-    if(s&&s.venue===v.name) opt.selected=true;
-    vsel.appendChild(opt);
+    const o=document.createElement("option");
+    o.value=v.name; o.textContent=v.name+(v.city?" — "+v.city:"");
+    if(s&&s.venue===v.name) o.selected=true;
+    vs.appendChild(o);
   });
-  const vother=document.createElement('option'); vother.value='__newvenue__'; vother.textContent='+ Add new venue…';
-  vsel.appendChild(vother);
-  vsel.onchange=function(){ if(this.value==='__newvenue__'){ closeOv('show-modal'); openVenueModal(null); } };
+  const vo=document.createElement("option"); vo.value="__nv__"; vo.textContent="+ Add new venue…";
+  vs.appendChild(vo);
+  vs.onchange=function(){if(this.value==="__nv__"){closeOv("show-modal");openVenueModal(null);}};
 
-  // Populate director selects — directors with role 'director' or 'both'
-  const dsel=document.getElementById('sm-dir');
-  dsel.innerHTML='<option value="">— Select director —</option>';
-  directors.filter(d=>d.role==='director'||d.role==='both').forEach(d=>{
-    const opt=document.createElement('option');
-    opt.value=d.name; opt.textContent=d.name;
-    if(s&&s.director===d.name) opt.selected=true;
-    dsel.appendChild(opt);
+  // Director select
+  const ds=document.getElementById("sm-dir");
+  ds.innerHTML="<option value=''>— Select director —</option>";
+  directors.filter(d=>d.role==="director"||d.role==="both").forEach(d=>{
+    const o=document.createElement("option");
+    o.value=d.name; o.textContent=d.name;
+    if(s&&s.director===d.name) o.selected=true;
+    ds.appendChild(o);
   });
-  const dnew=document.createElement('option'); dnew.value='__newdir__'; dnew.textContent='+ Add new director…';
-  dsel.appendChild(dnew);
-  dsel.onchange=function(){ if(this.value==='__newdir__'){ closeOv('show-modal'); openDirectorModal(null); } };
+  const dno=document.createElement("option"); dno.value="__nd__"; dno.textContent="+ Add new director…";
+  ds.appendChild(dno);
+  ds.onchange=function(){if(this.value==="__nd__"){closeOv("show-modal");openDirectorModal(null);}};
 
-  // Populate MD selects — directors with role 'md' or 'both'
-  const msel=document.getElementById('sm-md');
-  msel.innerHTML='<option value="">— Select music director —</option>';
-  directors.filter(d=>d.role==='md'||d.role==='both').forEach(d=>{
-    const opt=document.createElement('option');
-    opt.value=d.name; opt.textContent=d.name;
-    if(s&&s.md===d.name) opt.selected=true;
-    msel.appendChild(opt);
+  // MD select
+  const ms=document.getElementById("sm-md");
+  ms.innerHTML="<option value=''>— Select music director —</option>";
+  directors.filter(d=>d.role==="md"||d.role==="both").forEach(d=>{
+    const o=document.createElement("option");
+    o.value=d.name; o.textContent=d.name;
+    if(s&&s.md===d.name) o.selected=true;
+    ms.appendChild(o);
   });
-  const mnew=document.createElement('option'); mnew.value='__newmd__'; mnew.textContent='+ Add new director…';
-  msel.appendChild(mnew);
-  msel.onchange=function(){ if(this.value==='__newmd__'){ closeOv('show-modal'); openDirectorModal(null); } };
+  const mno=document.createElement("option"); mno.value="__nm__"; mno.textContent="+ Add new director…";
+  ms.appendChild(mno);
+  ms.onchange=function(){if(this.value==="__nm__"){closeOv("show-modal");openDirectorModal(null);}};
 
-  document.getElementById('show-modal').classList.remove('hidden');
+  document.getElementById("show-modal").classList.remove("hidden");
 };
+
 window.saveShow=async function(){
-  const name=document.getElementById('sm-name').value.trim(); if(!name)return;
-  const venue=document.getElementById('sm-venue').value;
-  const dir=document.getElementById('sm-dir').value;
-  const md=document.getElementById('sm-md').value;
-  if(venue==='__newvenue__'||dir==='__newdir__'||md==='__newmd__') return;
-  const id=editShowId||('s'+Date.now());
-  await fsWrite('shows',id,{
-    name,
-    venue,
-    date:document.getElementById('sm-date').value,
-    director:dir,
-    md
-  });
-  closeOv('show-modal');
-};
-window.delShow=async function(id){
-  if(!confirm('Delete this production and all its channels?'))return;
-  const chSnap=await getDocs(collection(db,'shows',id,'channels'));
-  for(const d of chSnap.docs) await deleteDoc(d.ref);
-  await fsDel('shows',id);
+  const name=document.getElementById("sm-name").value.trim(); if(!name)return;
+  const venue=document.getElementById("sm-venue").value;
+  const director=document.getElementById("sm-dir").value;
+  const md=document.getElementById("sm-md").value;
+  if(venue==="__nv__"||director==="__nd__"||md==="__nm__") return;
+  const id=editShowId||("s"+Date.now());
+  await fsWrite("shows",id,{name,venue,date:document.getElementById("sm-date").value,director,md});
+  closeOv("show-modal");
 };
 
-/* ── CHANNELS ── */
-function pad(n){return String(n).padStart(2,'0');}
+window.delShow=async function(id){
+  if(!confirm("Delete this production and all its channels?")) return;
+  const chSnap=await getDocs(collection(db,"shows",id,"channels"));
+  for(const d of chSnap.docs) await deleteDoc(d.ref);
+  await fsDel("shows",id);
+};
+
+/* ─── CHANNELS ───────────────────────────────────────── */
+function pad(n){return String(n).padStart(2,"0");}
+
 function calcInv(){
   const chs=channels[activeShow]||[];
   let xlr=0,di=0,wired=0,wireless=0,headset=0,amps={};
   chs.forEach(ch=>{
     const out=!ch.ap||(ch.ap&&ch.da); if(out) xlr+=ch.st?2:1;
-    const iface=(ch.iface||'').toLowerCase();
-    if(iface.includes('di')) di++;
-    if(iface.includes('headset')) headset++;
-    else if(iface.includes('wireless')) wireless++;
-    else if(iface.includes('dynamic')||iface.includes('condenser')) wired++;
+    const f=(ch.iface||"").toLowerCase();
+    if(f.includes("di")) di++;
+    if(f.includes("headset")) headset++;
+    else if(f.includes("wireless")) wireless++;
+    else if(f.includes("dynamic")||f.includes("condenser")) wired++;
     if(ch.ap&&ch.amp) amps[ch.amp]=(amps[ch.amp]||0)+1;
   });
   return{xlr,di,wired,wireless,headset,amps};
@@ -1047,56 +1054,55 @@ function calcInv(){
 function renderChannels(){
   const chs=channels[activeShow]||[];
   const s=shows.find(x=>x.id===activeShow);
-  document.getElementById('ch-pg-title').textContent=s?s.name:'Channel List';
-  document.getElementById('ch-pg-sub').textContent=(s&&s.venue?s.venue:'')+((s&&s.venue&&s.date)?' · ':'')+((s&&s.date)?s.date:'');
-  document.getElementById('ch-empty').classList.toggle('hidden',chs.length>0);
-  document.getElementById('ch-table-wrap').style.display=chs.length?'':'none';
+  document.getElementById("ch-pg-title").textContent=s?s.name:"Channel List";
+  document.getElementById("ch-pg-sub").textContent=(s&&s.venue?s.venue:"")+((s&&s.venue&&s.date)?" · ":"")+((s&&s.date)?s.date:"");
+  document.getElementById("ch-empty").classList.toggle("hidden",chs.length>0);
+  document.getElementById("ch-table-wrap").style.display=chs.length?"":"none";
 
   const inv=calcInv();
-  document.getElementById('inv-bar').innerHTML=
-    '<div class="inv-strip">'+
-    [['XLR Out',inv.xlr],['DI Boxes',inv.di],['Wired Mics',inv.wired],['Wireless',inv.wireless],['Headsets',inv.headset]]
-    .map(x=>'<div class="inv-card"><div class="inv-num'+(x[1]===0?' zero':'')+'">'+x[1]+'</div><div class="inv-lbl">'+x[0]+'</div></div>').join('')+
-    '</div>';
+  document.getElementById("inv-bar").innerHTML=
+    "<div class=\"inv-strip\">"+
+    [["XLR Out",inv.xlr],["DI Boxes",inv.di],["Wired Mics",inv.wired],["Wireless",inv.wireless],["Headsets",inv.headset]]
+    .map(x=>"<div class=\"inv-card\"><div class=\"inv-num"+(x[1]===0?" zero":"")+"\">"+x[1]+"</div><div class=\"inv-lbl\">"+x[0]+"</div></div>").join("")+
+    "</div>";
 
-  const tbody=document.getElementById('ch-body'); tbody.innerHTML='';
+  const tbody=document.getElementById("ch-body"); tbody.innerHTML="";
   let n=1;
   chs.forEach((ch,idx)=>{
     const out=!ch.ap||(ch.ap&&ch.da);
-    const nl=ch.st?(pad(n)+'-'+pad(n+1)):pad(n);
+    const nl=ch.st?(pad(n)+"-"+pad(n+1)):pad(n);
     if(ch.st)n+=2; else n++;
-    const tr=document.createElement('tr');
-    tr.className='ch-tr'+(ch.st?' stereo-row':'');
+    const tr=document.createElement("tr");
+    tr.className="ch-tr"+(ch.st?" stereo-row":"");
     tr.draggable=true;
     tr.innerHTML=
-      '<td><div class="drag-h">⠿</div></td>'+
-      '<td><span class="ch-num">'+nl+'</span></td>'+
-      '<td><div class="ch-name-main">'+ch.name+'</div><div class="ch-name-sub">'+ch.inst+'</div></td>'+
-      '<td style="color:var(--t2);font-size:13px">'+ch.inst+'</td>'+
-      '<td>'+(!ch.ap?'<span class="pill pill-cyan">'+(ch.iface||'—')+'</span>':'<span class="pill pill-muted">Amp direct</span>')+'</td>'+
-      '<td>'+(out?'<span class="pill pill-green">XLR</span>':'<span class="pill pill-muted">None</span>')+'</td>'+
-      '<td style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;padding-top:10px">'+
-        (ch.st?'<span class="pill pill-amber">Stereo</span>':'')+
-        (ch.ap?'<span class="pill pill-red">'+(ch.amp||'Amp')+'</span>':'')+
-        (ch.da?'<span class="pill pill-violet">DI out</span>':'')+
-      '</td>'+
-      '<td class="no-print"><div class="row-acts">'+
-        '<button class="act-btn" onclick="openCHModal('+idx+')">Edit</button>'+
-        '<button class="act-btn del" onclick="delChannel('+idx+')">×</button>'+
-      '</div></td>';
-    tr.addEventListener('dragstart',()=>{dragSrc=idx;tr.style.opacity='.3';});
-    tr.addEventListener('dragend',()=>{tr.style.opacity='';dragSrc=null;});
-    tr.addEventListener('dragover',e=>e.preventDefault());
-    tr.addEventListener('drop',async e=>{
+      "<td><div class=\"drag-h\">⠿</div></td>"+
+      "<td><span class=\"ch-num\">"+nl+"</span></td>"+
+      "<td><div class=\"ch-name-main\">"+ch.name+"</div><div class=\"ch-name-sub\">"+ch.inst+"</div></td>"+
+      "<td style=\"color:var(--t2);font-size:13px\">"+ch.inst+"</td>"+
+      "<td>"+(!ch.ap?"<span class=\"pill pill-cyan\">"+(ch.iface||"—")+"</span>":"<span class=\"pill pill-muted\">Amp direct</span>")+"</td>"+
+      "<td>"+(out?"<span class=\"pill pill-green\">XLR</span>":"<span class=\"pill pill-muted\">None</span>")+"</td>"+
+      "<td style=\"display:flex;gap:5px;align-items:center;flex-wrap:wrap;padding-top:10px\">"+
+        (ch.st?"<span class=\"pill pill-amber\">Stereo</span>":"")+
+        (ch.ap?"<span class=\"pill pill-red\">"+(ch.amp||"Amp")+"</span>":"")+
+        (ch.da?"<span class=\"pill pill-violet\">DI out</span>":"")+
+      "</td>"+
+      "<td class=\"no-print\"><div class=\"row-acts\">"+
+        "<button class=\"act-btn\" onclick=\"openCHModal("+idx+")\">Edit</button>"+
+        "<button class=\"act-btn del\" onclick=\"delChannel("+idx+")\">×</button>"+
+      "</div></td>";
+    tr.addEventListener("dragstart",()=>{dragSrc=idx;tr.style.opacity=".3";});
+    tr.addEventListener("dragend",()=>{tr.style.opacity="";dragSrc=null;});
+    tr.addEventListener("dragover",e=>e.preventDefault());
+    tr.addEventListener("drop",async e=>{
       e.preventDefault();
       if(dragSrc===null||dragSrc===idx)return;
       const arr=[...channels[activeShow]];
       arr.splice(idx,0,arr.splice(dragSrc,1)[0]);
-      showSync('saving','Reordering…');
-      for(let i=0;i<arr.length;i++){
-        await setDoc(doc(db,'shows',activeShow,'channels',arr[i].id),{order:i},{merge:true});
-      }
-      showSync('saved','Saved ✓');
+      showSync("saving","Reordering…");
+      for(let i=0;i<arr.length;i++)
+        await setDoc(doc(db,"shows",activeShow,"channels",arr[i].id),{order:i},{merge:true});
+      showSync("saved","Saved ✓");
     });
     tbody.appendChild(tr);
   });
@@ -1104,41 +1110,37 @@ function renderChannels(){
 
 function renderInvFull(){
   const inv=calcInv();
-  document.getElementById('inv-full').innerHTML=
-    [['XLR Outputs',inv.xlr],['DI Boxes',inv.di],['Wired Mics',inv.wired],['Wireless Units',inv.wireless],['Headset Mics',inv.headset]]
-    .map(x=>'<div class="inv-card"><div class="inv-num'+(x[1]===0?' zero':'')+'">'+x[1]+'</div><div class="inv-lbl">'+x[0]+'</div></div>').join('');
+  document.getElementById("inv-full").innerHTML=
+    [["XLR Outputs",inv.xlr],["DI Boxes",inv.di],["Wired Mics",inv.wired],["Wireless Units",inv.wireless],["Headset Mics",inv.headset]]
+    .map(x=>"<div class=\"inv-card\"><div class=\"inv-num"+(x[1]===0?" zero":"")+"\">"+x[1]+"</div><div class=\"inv-lbl\">"+x[0]+"</div></div>").join("");
   const al=Object.entries(inv.amps);
-  document.getElementById('inv-amps').innerHTML=al.length?
-    '<div style="margin-top:6px">'+
-    '<div style="font-family:var(--mono);font-size:9px;color:var(--t4);letter-spacing:2px;margin-bottom:10px;text-transform:uppercase">Amplifiers</div>'+
-    al.map(x=>'<div style="padding:12px 16px;background:var(--s2);border:1px solid var(--rim);border-radius:12px;font-size:14px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center"><span style="font-weight:500">'+x[0]+'</span><span class="pill pill-red">×'+x[1]+'</span></div>').join('')+
-    '</div>':'';
+  document.getElementById("inv-amps").innerHTML=al.length?
+    "<div style=\"margin-top:6px\">"+
+    "<div style=\"font-family:var(--mono);font-size:9px;color:var(--t4);letter-spacing:2px;margin-bottom:10px;text-transform:uppercase\">Amplifiers</div>"+
+    al.map(x=>"<div style=\"padding:12px 16px;background:var(--s2);border:1px solid var(--rim);border-radius:12px;font-size:14px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center\"><span style=\"font-weight:500\">"+x[0]+"</span><span class=\"pill pill-red\">×"+x[1]+"</span></div>").join("")+
+    "</div>":"";
 }
 
-/* ── BUILD CHANNEL INTERFACE DROPDOWN FROM GEAR ── */
 function buildIfaceSelect(currentVal){
-  const sel=document.getElementById('cm-iface');
-  sel.innerHTML='<option value="">— Select from Gear Library —</option>';
-  // Group by category
-  const cats=['microphones','wireless','di_boxes','amplifiers','monitors','consoles','cables','accessories','power'];
-  cats.forEach(cat=>{
+  const sel=document.getElementById("cm-iface");
+  sel.innerHTML="<option value=''>— Select from Gear Library —</option>";
+  ["microphones","wireless","di_boxes","amplifiers","monitors","consoles","cables","accessories","power"].forEach(cat=>{
     const items=gear[cat]||[];
     if(!items.length) return;
-    const grp=document.createElement('optgroup');
+    const grp=document.createElement("optgroup");
     grp.label=GCATS[cat]?GCATS[cat].l:cat;
     items.forEach(item=>{
-      const opt=document.createElement('option');
-      opt.value=item.name+(item.notes?' — '+item.notes:'');
-      opt.textContent=item.name+(item.notes?' — '+item.notes:'');
-      if(opt.value===currentVal) opt.selected=true;
+      const opt=document.createElement("option");
+      const val=item.name+(item.notes?" — "+item.notes:"");
+      opt.value=val; opt.textContent=val;
+      if(val===currentVal) opt.selected=true;
       grp.appendChild(opt);
     });
     sel.appendChild(grp);
   });
-  // Also add a separator + manual option at the bottom
-  const sep=document.createElement('option'); sep.disabled=true; sep.textContent='──────────';
+  const sep=document.createElement("option"); sep.disabled=true; sep.textContent="──────────";
   sel.appendChild(sep);
-  const other=document.createElement('option'); other.value='_manual'; other.textContent='Type manually…';
+  const other=document.createElement("option"); other.value="_manual"; other.textContent="Type manually…";
   sel.appendChild(other);
 }
 
@@ -1146,303 +1148,307 @@ window.openCHModal=function(idx){
   editCHIdx=(idx!==null&&idx!==undefined)?idx:null;
   const ch=(editCHIdx!==null)?channels[activeShow][editCHIdx]:null;
   cms={st:ch?!!ch.st:false,ap:ch?!!ch.ap:false,da:ch?!!ch.da:false};
-  document.getElementById('cm-title').textContent=ch?'Edit Channel':'Add Channel';
-  document.getElementById('cm-name').value=ch?ch.name:'';
-  document.getElementById('cm-inst').value=ch?ch.inst:'';
-  document.getElementById('cm-amp').value=ch?ch.amp:'';
-  buildIfaceSelect(ch?ch.iface:'');
+  document.getElementById("cm-title").textContent=ch?"Edit Channel":"Add Channel";
+  document.getElementById("cm-name").value=ch?ch.name:"";
+  document.getElementById("cm-inst").value=ch?ch.inst:"";
+  document.getElementById("cm-amp").value=ch?ch.amp:"";
+  buildIfaceSelect(ch?ch.iface:"");
   updateToggs();
-  document.getElementById('ch-modal').classList.remove('hidden');
-
-  // if "Type manually…" is selected, swap select for text input
-  document.getElementById('cm-iface').onchange=function(){
-    if(this.value==='_manual'){
-      const inp=document.createElement('input');
-      inp.className='form-input'; inp.id='cm-iface'; inp.placeholder='e.g. SM58 (Dynamic)';
+  // Handle manual type
+  const ifaceEl=document.getElementById("cm-iface");
+  ifaceEl.onchange=function(){
+    if(this.value==="_manual"){
+      const inp=document.createElement("input");
+      inp.className="form-input"; inp.id="cm-iface"; inp.placeholder="e.g. SM58 (Dynamic)";
       this.parentNode.replaceChild(inp,this);
     }
   };
+  document.getElementById("ch-modal").classList.remove("hidden");
 };
 window.delChannel=async function(idx){
   const ch=channels[activeShow][idx]; if(!ch)return;
-  await fsDel('shows',activeShow,'channels',ch.id);
+  await fsDel("shows",activeShow,"channels",ch.id);
 };
 window.tog=function(k){cms[k]=!cms[k];updateToggs();};
 function updateToggs(){
-  ['st','ap','da'].forEach(k=>document.getElementById('tt-'+k).classList.toggle('on',cms[k]));
-  document.getElementById('amp-row').classList.toggle('hidden',!cms.ap);
+  ["st","ap","da"].forEach(k=>document.getElementById("tt-"+k).classList.toggle("on",cms[k]));
+  document.getElementById("amp-row").classList.toggle("hidden",!cms.ap);
 }
 window.saveCH=async function(){
-  const name=document.getElementById('cm-name').value.trim(); if(!name)return;
-  const ifaceEl=document.getElementById('cm-iface');
-  const ifaceVal=ifaceEl.value==='_manual'?'':ifaceEl.value;
+  const name=document.getElementById("cm-name").value.trim(); if(!name)return;
+  const ifEl=document.getElementById("cm-iface");
+  const iface=ifEl.value==="_manual"?"":ifEl.value;
   const chs=channels[activeShow]||[];
-  const id=(editCHIdx!==null&&chs[editCHIdx])?chs[editCHIdx].id:('c'+Date.now());
+  const id=(editCHIdx!==null&&chs[editCHIdx])?chs[editCHIdx].id:("c"+Date.now());
   const order=(editCHIdx!==null&&chs[editCHIdx])?(chs[editCHIdx].order??editCHIdx):chs.length;
-  await fsWrite('shows',activeShow,
-    {name,inst:document.getElementById('cm-inst').value,iface:ifaceVal,st:cms.st,ap:cms.ap,da:cms.da,amp:document.getElementById('cm-amp').value,order},
-    'channels',id
-  );
-  closeOv('ch-modal');
+  await fsWrite("shows",activeShow,
+    {name,inst:document.getElementById("cm-inst").value,iface,
+     st:cms.st,ap:cms.ap,da:cms.da,amp:document.getElementById("cm-amp").value,order},
+    "channels",id);
+  closeOv("ch-modal");
 };
 
-/* ── GEAR ── */
+/* ─── GEAR ───────────────────────────────────────────── */
 function renderGear(){
-  const el=document.getElementById('gear-content'); el.innerHTML='';
+  const el=document.getElementById("gear-content"); el.innerHTML="";
   Object.entries(GCATS).forEach(([cat,meta])=>{
     const items=gear[cat]||[];
-    const sec=document.createElement('div'); sec.className='gear-section';
+    const sec=document.createElement("div"); sec.className="gear-section";
+    const safecat=cat.replace(/'/g,"\\'");
     sec.innerHTML=
-      '<div class="gear-section-header">'+
-        '<div class="gear-section-title"><span style="font-size:18px">'+meta.i+'</span>'+meta.l+'<span class="gear-section-count">'+items.length+'</span></div>'+
-        '<button class="btn btn-green btn-sm" onclick="openGearModal(\''+cat+'\',null)">+ Add</button>'+
-      '</div>'+
-      '<div class="gear-grid" id="gg-'+cat+'">'+
-        (!items.length?'<div style="font-size:13px;color:var(--t4);padding:6px 0;grid-column:1/-1">No items — click Add to populate this category</div>':'')+
-      '</div>';
+      "<div class=\"gear-section-header\">"+
+        "<div class=\"gear-section-title\"><span style=\"font-size:18px\">"+meta.i+"</span>"+meta.l+"<span class=\"gear-section-count\">"+items.length+"</span></div>"+
+        "<button class=\"btn btn-green btn-sm\" onclick=\"openGearModal('"+safecat+"',null)\">+ Add</button>"+
+      "</div>"+
+      "<div class=\"gear-grid\" id=\"gg-"+cat+"\">"+
+        (!items.length?"<div style=\"font-size:13px;color:var(--t4);padding:6px 0;grid-column:1/-1\">No items — click Add to populate</div>":"")+
+      "</div>";
     el.appendChild(sec);
-    const grid=document.getElementById('gg-'+cat);
+    const grid=document.getElementById("gg-"+cat);
     items.forEach(item=>{
-      const card=document.createElement('div'); card.className='gear-item';
+      const card=document.createElement("div"); card.className="gear-item";
+      const sc=cat.replace(/'/g,"\\'");
+      const si=item.id.replace(/'/g,"\\'");
       card.innerHTML=
-        '<div>'+
-          '<div class="gi-name">'+item.name+'</div>'+
-          (item.notes?'<div class="gi-sub">'+item.notes+'</div>':'')+
-          (item.sku?'<div class="gi-sku">'+item.sku+'</div>':'')+
-        '</div>'+
-        '<div class="gi-actions">'+
-          '<button class="act-btn" onclick="openGearModal(\''+cat+'\',\''+item.id+'\')">Edit</button>'+
-          '<button class="act-btn" onclick="dupeGear(\''+cat+'\',\''+item.id+'\')" title="Duplicate">⧉</button>'+
-          '<button class="act-btn del" onclick="delGear(\''+cat+'\',\''+item.id+'\')">×</button>'+
-        '</div>';
+        "<div>"+
+          "<div class=\"gi-name\">"+item.name+"</div>"+
+          (item.notes?"<div class=\"gi-sub\">"+item.notes+"</div>":"")+
+          (item.sku?"<div class=\"gi-sku\">"+item.sku+"</div>":"")+
+        "</div>"+
+        "<div class=\"gi-actions\">"+
+          "<button class=\"act-btn\" onclick=\"openGearModal('"+sc+"','"+si+"')\">Edit</button>"+
+          "<button class=\"act-btn\" onclick=\"dupeGear('"+sc+"','"+si+"')\" title=\"Duplicate\">⧉</button>"+
+          "<button class=\"act-btn del\" onclick=\"delGear('"+sc+"','"+si+"')\">×</button>"+
+        "</div>";
       grid.appendChild(card);
     });
   });
 }
 
-/* ── VENUES ── */
-async function loadVenues(){
-  const snap=await getDocs(collection(db,'venues'));
-  venues=snap.docs.map(d=>({id:d.id,...d.data()}));
-  venues.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-}
-function renderVenues(){
-  const el=document.getElementById('venues-content'); el.innerHTML='';
-  if(!venues.length){
-    el.innerHTML='<div class="empty-state"><div class="empty-icon">📍</div><div class="empty-text">No venues yet — click Add Venue to get started</div></div>';
-    return;
-  }
-  const grid=document.createElement('div'); grid.className='lib-grid';
-  venues.forEach(v=>{
-    const card=document.createElement('div'); card.className='lib-card';
-    card.innerHTML=
-      '<div class="lib-card-name">'+v.name+'</div>'+
-      '<div class="lib-card-meta">'+
-        (v.city?'<span>📍 '+v.city+'</span>':'')+
-        (v.cap?'<span>👥 Capacity: '+v.cap+'</span>':'')+
-        (v.stage?'<span>🎭 '+v.stage+'</span>':'')+
-        (v.notes?'<span>📝 '+v.notes+'</span>':'')+
-      '</div>'+
-      '<div class="lib-card-actions">'+
-        '<button class="btn btn-sm" onclick="openVenueModal(''+v.id+'')">Edit</button>'+
-        '<button class="btn btn-sm btn-danger" onclick="delVenue(''+v.id+'')">×</button>'+
-      '</div>';
-    grid.appendChild(card);
-  });
-  el.appendChild(grid);
-}
-window.openVenueModal=function(id){
-  editVenueId=id||null;
-  const v=id?venues.find(x=>x.id===id):null;
-  document.getElementById('vm-title').textContent=v?'Edit Venue':'Add Venue';
-  document.getElementById('vm-name').value=v?v.name:'';
-  document.getElementById('vm-city').value=v?(v.city||''):'';
-  document.getElementById('vm-cap').value=v?(v.cap||''):'';
-  document.getElementById('vm-stage').value=v?(v.stage||''):'';
-  document.getElementById('vm-notes').value=v?(v.notes||''):'';
-  document.getElementById('venue-modal').classList.remove('hidden');
-};
-window.saveVenue=async function(){
-  const name=document.getElementById('vm-name').value.trim(); if(!name)return;
-  const id=editVenueId||('v'+Date.now());
-  const obj={name,city:document.getElementById('vm-city').value,cap:document.getElementById('vm-cap').value,stage:document.getElementById('vm-stage').value,notes:document.getElementById('vm-notes').value};
-  await fsWrite('venues',id,obj);
-  const i=venues.findIndex(x=>x.id===id);
-  if(i>-1) venues[i]={id,...obj}; else venues.push({id,...obj});
-  venues.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  closeOv('venue-modal'); renderVenues();
-};
-window.delVenue=async function(id){
-  if(!confirm('Delete this venue?'))return;
-  await fsDel('venues',id);
-  venues=venues.filter(x=>x.id!==id); renderVenues();
-};
-
-/* ── DIRECTORS ── */
-async function loadDirectors(){
-  const snap=await getDocs(collection(db,'directors'));
-  directors=snap.docs.map(d=>({id:d.id,...d.data()}));
-  directors.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-}
-function renderDirectors(){
-  const el=document.getElementById('directors-content'); el.innerHTML='';
-  if(!directors.length){
-    el.innerHTML='<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">No directors yet — click Add Director to get started</div></div>';
-    return;
-  }
-  const grid=document.createElement('div'); grid.className='lib-grid';
-  directors.forEach(d=>{
-    const roleLabel={both:'Director & Music Director',director:'Director',md:'Music Director'}[d.role]||d.role;
-    const roleColor=d.role==='both'?'pill-cyan':d.role==='md'?'pill-violet':'pill-green';
-    const card=document.createElement('div'); card.className='lib-card';
-    card.innerHTML=
-      '<div class="lib-card-name">'+d.name+'</div>'+
-      '<div class="lib-card-role"><span class="pill '+roleColor+'">'+roleLabel+'</span></div>'+
-      '<div class="lib-card-meta">'+
-        (d.email?'<span>✉️ '+d.email+'</span>':'')+
-        (d.notes?'<span>📝 '+d.notes+'</span>':'')+
-      '</div>'+
-      '<div class="lib-card-actions">'+
-        '<button class="btn btn-sm" onclick="openDirectorModal(''+d.id+'')">Edit</button>'+
-        '<button class="btn btn-sm btn-danger" onclick="delDirector(''+d.id+'')">×</button>'+
-      '</div>';
-    grid.appendChild(card);
-  });
-  el.appendChild(grid);
-}
-window.openDirectorModal=function(id){
-  editDirectorId=id||null;
-  const d=id?directors.find(x=>x.id===id):null;
-  document.getElementById('dm-title').textContent=d?'Edit Director':'Add Director';
-  document.getElementById('dm-name').value=d?d.name:'';
-  document.getElementById('dm-role').value=d?(d.role||'both'):'both';
-  document.getElementById('dm-email').value=d?(d.email||''):'';
-  document.getElementById('dm-notes').value=d?(d.notes||''):'';
-  document.getElementById('director-modal').classList.remove('hidden');
-};
-window.saveDirector=async function(){
-  const name=document.getElementById('dm-name').value.trim(); if(!name)return;
-  const id=editDirectorId||('d'+Date.now());
-  const obj={name,role:document.getElementById('dm-role').value,email:document.getElementById('dm-email').value,notes:document.getElementById('dm-notes').value};
-  await fsWrite('directors',id,obj);
-  const i=directors.findIndex(x=>x.id===id);
-  if(i>-1) directors[i]={id,...obj}; else directors.push({id,...obj});
-  directors.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  closeOv('director-modal'); renderDirectors();
-};
-window.delDirector=async function(id){
-  if(!confirm('Delete this director?'))return;
-  await fsDel('directors',id);
-  directors=directors.filter(x=>x.id!==id); renderDirectors();
-};
-
-/* ── BUILD GEAR CATEGORY SELECT ── */
 function buildGearCatSelect(currentCat){
-  const sel=document.getElementById('gm-cat');
-  sel.innerHTML='';
-  // built-in cats
+  const sel=document.getElementById("gm-cat");
+  sel.innerHTML="";
   Object.entries(GCATS).forEach(([k,v])=>{
-    const opt=document.createElement('option');
-    opt.value=k; opt.textContent=v.i+' '+v.l;
+    const opt=document.createElement("option");
+    opt.value=k; opt.textContent=v.i+" "+v.l;
     if(k===currentCat) opt.selected=true;
     sel.appendChild(opt);
   });
-  // custom cats from gear object
   Object.keys(gear).forEach(k=>{
-    if(GCATS[k]) return; // already in built-ins
-    const opt=document.createElement('option');
-    opt.value=k; opt.textContent='⊹ '+k;
+    if(GCATS[k]) return;
+    const opt=document.createElement("option");
+    opt.value=k; opt.textContent="⊹ "+k;
     if(k===currentCat) opt.selected=true;
     sel.appendChild(opt);
   });
-  // separator + new category
-  const sep=document.createElement('option'); sep.disabled=true; sep.textContent='──────────';
+  const sep=document.createElement("option"); sep.disabled=true; sep.textContent="──────────";
   sel.appendChild(sep);
-  const newOpt=document.createElement('option'); newOpt.value='__new__'; newOpt.textContent='+ Create new category…';
+  const newOpt=document.createElement("option"); newOpt.value="__new__"; newOpt.textContent="+ Create new category…";
   sel.appendChild(newOpt);
-  if(!currentCat && sel.options.length>0) sel.selectedIndex=0;
+  if(!currentCat&&sel.options.length>0) sel.selectedIndex=0;
 }
 
 window.handleGearCatChange=function(sel){
-  const newCatRow=document.getElementById('gm-newcat-row');
-  newCatRow.classList.toggle('hidden', sel.value!=='__new__');
+  document.getElementById("gm-newcat-row").classList.toggle("hidden",sel.value!=="__new__");
 };
 
 window.openGearModal=function(cat,id){
   editGearCat=cat||null; editGearId=id||null;
-  const item=(id&&cat&&gear[cat])?(gear[cat].find(x=>x.id===id)||null):null;
-  document.getElementById('gm-title').textContent=item?'Edit Gear Item':'Add Gear Item';
-  document.getElementById('gm-name').value=item?item.name:'';
-  document.getElementById('gm-notes').value=item?(item.notes||''):'';
-  document.getElementById('gm-sku').value=item?(item.sku||''):'';
-  document.getElementById('gm-newcat-name').value='';
-  document.getElementById('gm-newcat-icon').value='';
-  document.getElementById('gm-newcat-row').classList.add('hidden');
+  const item=(id&&cat&&gear[cat])?gear[cat].find(x=>x.id===id)||null:null;
+  document.getElementById("gm-title").textContent=item?"Edit Gear Item":"Add Gear Item";
+  document.getElementById("gm-name").value=item?item.name:"";
+  document.getElementById("gm-notes").value=item?item.notes||"":"";
+  document.getElementById("gm-sku").value=item?item.sku||"":"";
+  document.getElementById("gm-newcat-name").value="";
+  document.getElementById("gm-newcat-icon").value="";
+  document.getElementById("gm-newcat-row").classList.add("hidden");
   buildGearCatSelect(cat||Object.keys(GCATS)[0]);
-  document.getElementById('gear-modal').classList.remove('hidden');
+  document.getElementById("gear-modal").classList.remove("hidden");
 };
 
 window.saveGear=async function(){
-  const name=document.getElementById('gm-name').value.trim(); if(!name)return;
-  let cat=document.getElementById('gm-cat').value;
-
-  // Handle new custom category
-  if(cat==='__new__'){
-    const newName=document.getElementById('gm-newcat-name').value.trim();
-    if(!newName){ document.getElementById('gm-newcat-name').focus(); return; }
-    const icon=document.getElementById('gm-newcat-icon').value.trim()||'⊹';
-    // create a slug key from the name
-    cat=newName.toLowerCase().replace(/[^a-z0-9]/g,'_').replace(/__+/g,'_').replace(/^_|_$/g,'');
-    // Register in GCATS so it appears in the UI
-    GCATS[cat]={l:newName, i:icon};
+  const name=document.getElementById("gm-name").value.trim(); if(!name)return;
+  let cat=document.getElementById("gm-cat").value;
+  if(cat==="__new__"){
+    const newName=document.getElementById("gm-newcat-name").value.trim();
+    if(!newName){document.getElementById("gm-newcat-name").focus();return;}
+    const icon=document.getElementById("gm-newcat-icon").value.trim()||"⊹";
+    cat=newName.toLowerCase().replace(/[^a-z0-9]/g,"_").replace(/__+/g,"_").replace(/^_|_$/g,"");
+    GCATS[cat]={l:newName,i:icon};
     gear[cat]=[];
   }
-
-  const id=editGearId||('g'+Date.now());
-  const item={name, category:cat, notes:document.getElementById('gm-notes').value, sku:document.getElementById('gm-sku').value};
-  await fsWrite('gear',id,item);
+  const id=editGearId||("g"+Date.now());
+  const item={name,category:cat,notes:document.getElementById("gm-notes").value,sku:document.getElementById("gm-sku").value};
+  await fsWrite("gear",id,item);
   if(!gear[cat]) gear[cat]=[];
   const i=gear[cat].findIndex(x=>x.id===id);
   if(i>-1) gear[cat][i]={id,...item}; else gear[cat].push({id,...item});
-  gear[cat].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  closeOv('gear-modal');
+  gear[cat].sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  closeOv("gear-modal");
   renderGear();
 };
+
 window.dupeGear=function(cat,id){
-  const item=(gear[cat]||[]).find(x=>x.id===id); if(!item) return;
-  // Open gear modal pre-filled with a copy — new id, same fields, SKU cleared for user to update
-  editGearCat=cat; editGearId=null; // null = new item
-  document.getElementById('gm-title').textContent='Duplicate Gear Item';
-  document.getElementById('gm-name').value=item.name+' (copy)';
-  document.getElementById('gm-notes').value=item.notes||'';
-  document.getElementById('gm-sku').value=''; // intentionally blank so user can set new SKU
-  document.getElementById('gm-newcat-name').value='';
-  document.getElementById('gm-newcat-icon').value='';
-  document.getElementById('gm-newcat-row').classList.add('hidden');
+  const item=(gear[cat]||[]).find(x=>x.id===id); if(!item)return;
+  editGearCat=cat; editGearId=null;
+  document.getElementById("gm-title").textContent="Duplicate Gear Item";
+  document.getElementById("gm-name").value=item.name+" (copy)";
+  document.getElementById("gm-notes").value=item.notes||"";
+  document.getElementById("gm-sku").value="";
+  document.getElementById("gm-newcat-name").value="";
+  document.getElementById("gm-newcat-icon").value="";
+  document.getElementById("gm-newcat-row").classList.add("hidden");
   buildGearCatSelect(cat);
-  document.getElementById('gear-modal').classList.remove('hidden');
+  document.getElementById("gear-modal").classList.remove("hidden");
 };
+
 window.delGear=async function(cat,id){
-  if(!confirm('Remove this item?'))return;
-  await fsDel('gear',id);
+  if(!confirm("Remove this item?"))return;
+  await fsDel("gear",id);
   gear[cat]=(gear[cat]||[]).filter(x=>x.id!==id);
   renderGear();
 };
 
-/* ── UTILS ── */
-window.closeOv=function(id){ document.getElementById(id).classList.add('hidden'); };
-document.querySelectorAll('.modal-overlay').forEach(m=>{
-  m.addEventListener('click',e=>{ if(e.target===m) m.classList.add('hidden'); });
+/* ─── VENUES ─────────────────────────────────────────── */
+function renderVenues(){
+  const el=document.getElementById("venues-content"); el.innerHTML="";
+  if(!venues.length){
+    el.innerHTML="<div class=\"empty-state\"><div class=\"empty-icon\">📍</div><div class=\"empty-text\">No venues yet — click Add Venue to get started</div></div>";
+    return;
+  }
+  const grid=document.createElement("div"); grid.className="lib-grid";
+  venues.forEach(v=>{
+    const card=document.createElement("div"); card.className="lib-card";
+    const sid=v.id.replace(/'/g,"\\'");
+    card.innerHTML=
+      "<div class=\"lib-card-name\">"+v.name+"</div>"+
+      "<div class=\"lib-card-meta\">"+
+        (v.city?"<span>📍 "+v.city+"</span>":"")+
+        (v.cap?"<span>👥 Capacity: "+v.cap+"</span>":"")+
+        (v.stage?"<span>🎭 "+v.stage+"</span>":"")+
+        (v.notes?"<span>📝 "+v.notes+"</span>":"")+
+      "</div>"+
+      "<div class=\"lib-card-actions\">"+
+        "<button class=\"btn btn-sm\" onclick=\"openVenueModal('"+sid+"')\">Edit</button>"+
+        "<button class=\"btn btn-sm btn-danger\" onclick=\"delVenue('"+sid+"')\">×</button>"+
+      "</div>";
+    grid.appendChild(card);
+  });
+  el.appendChild(grid);
+}
+
+window.openVenueModal=function(id){
+  editVenueId=id||null;
+  const v=id?venues.find(x=>x.id===id):null;
+  document.getElementById("vm-title").textContent=v?"Edit Venue":"Add Venue";
+  document.getElementById("vm-name").value=v?v.name:"";
+  document.getElementById("vm-city").value=v?v.city||"":"";
+  document.getElementById("vm-cap").value=v?v.cap||"":"";
+  document.getElementById("vm-stage").value=v?v.stage||"":"";
+  document.getElementById("vm-notes").value=v?v.notes||"":"";
+  document.getElementById("venue-modal").classList.remove("hidden");
+};
+
+window.saveVenue=async function(){
+  const name=document.getElementById("vm-name").value.trim(); if(!name)return;
+  const id=editVenueId||("v"+Date.now());
+  const obj={name,city:document.getElementById("vm-city").value,
+    cap:document.getElementById("vm-cap").value,
+    stage:document.getElementById("vm-stage").value,
+    notes:document.getElementById("vm-notes").value};
+  await fsWrite("venues",id,obj);
+  const i=venues.findIndex(x=>x.id===id);
+  if(i>-1) venues[i]={id,...obj}; else venues.push({id,...obj});
+  venues.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  closeOv("venue-modal");
+  renderVenues();
+};
+
+window.delVenue=async function(id){
+  if(!confirm("Delete this venue?"))return;
+  await fsDel("venues",id);
+  venues=venues.filter(x=>x.id!==id);
+  renderVenues();
+};
+
+/* ─── DIRECTORS ──────────────────────────────────────── */
+function renderDirectors(){
+  const el=document.getElementById("directors-content"); el.innerHTML="";
+  if(!directors.length){
+    el.innerHTML="<div class=\"empty-state\"><div class=\"empty-icon\">👤</div><div class=\"empty-text\">No directors yet — click Add Director to get started</div></div>";
+    return;
+  }
+  const grid=document.createElement("div"); grid.className="lib-grid";
+  directors.forEach(d=>{
+    const roleLabel={both:"Director & Music Director",director:"Director",md:"Music Director"}[d.role]||d.role;
+    const roleColor=d.role==="both"?"pill-cyan":d.role==="md"?"pill-violet":"pill-green";
+    const sid=d.id.replace(/'/g,"\\'");
+    const card=document.createElement("div"); card.className="lib-card";
+    card.innerHTML=
+      "<div class=\"lib-card-name\">"+d.name+"</div>"+
+      "<div class=\"lib-card-role\"><span class=\"pill "+roleColor+"\">"+roleLabel+"</span></div>"+
+      "<div class=\"lib-card-meta\">"+
+        (d.email?"<span>✉️ "+d.email+"</span>":"")+
+        (d.notes?"<span>📝 "+d.notes+"</span>":"")+
+      "</div>"+
+      "<div class=\"lib-card-actions\">"+
+        "<button class=\"btn btn-sm\" onclick=\"openDirectorModal('"+sid+"')\">Edit</button>"+
+        "<button class=\"btn btn-sm btn-danger\" onclick=\"delDirector('"+sid+"')\">×</button>"+
+      "</div>";
+    grid.appendChild(card);
+  });
+  el.appendChild(grid);
+}
+
+window.openDirectorModal=function(id){
+  editDirectorId=id||null;
+  const d=id?directors.find(x=>x.id===id):null;
+  document.getElementById("dm-title").textContent=d?"Edit Director":"Add Director";
+  document.getElementById("dm-name").value=d?d.name:"";
+  document.getElementById("dm-role").value=d?d.role||"both":"both";
+  document.getElementById("dm-email").value=d?d.email||"":"";
+  document.getElementById("dm-notes").value=d?d.notes||"":"";
+  document.getElementById("director-modal").classList.remove("hidden");
+};
+
+window.saveDirector=async function(){
+  const name=document.getElementById("dm-name").value.trim(); if(!name)return;
+  const id=editDirectorId||("d"+Date.now());
+  const obj={name,role:document.getElementById("dm-role").value,
+    email:document.getElementById("dm-email").value,
+    notes:document.getElementById("dm-notes").value};
+  await fsWrite("directors",id,obj);
+  const i=directors.findIndex(x=>x.id===id);
+  if(i>-1) directors[i]={id,...obj}; else directors.push({id,...obj});
+  directors.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  closeOv("director-modal");
+  renderDirectors();
+};
+
+window.delDirector=async function(id){
+  if(!confirm("Delete this director?"))return;
+  await fsDel("directors",id);
+  directors=directors.filter(x=>x.id!==id);
+  renderDirectors();
+};
+
+/* ─── UTILS ──────────────────────────────────────────── */
+window.closeOv=function(id){document.getElementById(id).classList.add("hidden");};
+
+document.querySelectorAll(".modal-overlay").forEach(m=>{
+  m.addEventListener("click",e=>{if(e.target===m) m.classList.add("hidden");});
 });
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape') document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m=>m.classList.add('hidden'));
-  if(e.key==='Enter' && !document.getElementById('splash').classList.contains('hidden')){
-    const btn=document.getElementById('splash-enter');
-    if(!btn.classList.contains('hidden')) enterApp();
+
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape")
+    document.querySelectorAll(".modal-overlay:not(.hidden)").forEach(m=>m.classList.add("hidden"));
+  if(e.key==="Enter" && !document.getElementById("splash").classList.contains("hidden")){
+    const btn=document.getElementById("splash-enter");
+    if(!btn.classList.contains("hidden")) enterApp();
   }
 });
 
-/* ── START ── */
+/* ─── START ──────────────────────────────────────────── */
 boot();
 </script>
 </body>
