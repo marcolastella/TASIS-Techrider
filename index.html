@@ -66,19 +66,19 @@ input,select,button,textarea{font-family:var(--body)}
 .splash-by{font-size:13px;color:var(--t3);letter-spacing:2px;font-family:var(--mono)}
 .splash-by span{color:var(--t2)}
 .splash-status-wrap{
-  margin-top:0;padding:14px 28px;
+  margin-top:0;padding:12px 24px;
   background:rgba(255,255,255,.03);
   border:1px solid rgba(255,255,255,.06);
-  border-radius:20px;
-  display:flex;align-items:flex-start;gap:10px;
-  max-width:460px;
+  border-radius:100px;
+  display:flex;align-items:center;gap:10px;
+  max-width:500px;
 }
-.splash-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.splash-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;position:relative;top:0}
 .splash-dot.connecting{background:var(--amber);animation:blink 1s infinite}
 .splash-dot.online{background:var(--green);box-shadow:0 0 10px rgba(0,229,160,.6)}
 .splash-dot.error{background:var(--red)}
 @keyframes blink{0%,100%{opacity:.3}50%{opacity:1}}
-.splash-status-txt{font-family:var(--mono);font-size:12px;color:var(--t3);letter-spacing:.5px;max-width:420px;text-align:center;line-height:1.5}
+.splash-status-txt{font-family:var(--mono);font-size:12px;color:var(--t3);letter-spacing:.5px;white-space:nowrap}
 .splash-enter{
   margin-top:40px;
   background:linear-gradient(135deg,rgba(68,136,255,.15),rgba(0,229,255,.08));
@@ -138,24 +138,48 @@ input,select,button,textarea{font-family:var(--body)}
 ══════════════════════════════════════════════ */
 .shell{display:flex;flex:1;overflow:hidden}
 .sidebar{
-  width:216px;flex-shrink:0;
-  background:linear-gradient(180deg,var(--s1),var(--bg));
+  width:220px;flex-shrink:0;
+  background:var(--s1);
   border-right:1px solid var(--rim);
-  display:flex;flex-direction:column;padding:16px 0;overflow-y:auto;
+  display:flex;flex-direction:column;
+  padding:20px 0 20px;overflow-y:auto;
 }
-.sb-group{margin-bottom:24px}
-.sb-group-label{font-family:var(--mono);font-size:9px;color:var(--t4);letter-spacing:0px;padding:0 16px;margin-bottom:6px;text-transform:uppercase}
-.sb-btn{
-  display:flex;align-items:center;gap:10px;padding:9px 16px;
-  cursor:pointer;border-left:2px solid transparent;
-  color:var(--t3);font-size:14px;font-weight:500;
+.sb-logo{
+  padding:0 16px 20px;
+  border-bottom:1px solid var(--rim);
+  margin-bottom:8px;
+  cursor:pointer;
+}
+.sb-logo-text{font-size:14px;font-weight:700;color:var(--t2);letter-spacing:-.2px}
+.sb-logo-text span{
+  background:linear-gradient(135deg,var(--blue),var(--cyan),var(--violet));
+  background-size:300% 300%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:shimmer-bg 4s ease-in-out infinite;
+}
+.sb-section{margin-bottom:4px}
+.sb-section-label{
+  font-family:var(--mono);font-size:9px;color:var(--t4);letter-spacing:2px;
+  padding:12px 16px 4px;text-transform:uppercase;
+}
+.sb-item{
+  display:flex;align-items:center;gap:11px;
+  padding:8px 16px;cursor:pointer;
+  border-left:2px solid transparent;
+  color:var(--t3);font-size:13px;font-weight:500;
   transition:all .15s;user-select:none;
+  border-radius:0;
 }
-.sb-btn:hover{color:var(--t2);background:rgba(255,255,255,.02)}
-.sb-btn.active{color:var(--cyan);border-left-color:var(--cyan);background:rgba(0,229,255,.04)}
-.sb-btn.active .sb-icon{color:var(--cyan)}
-.sb-icon{font-size:16px;width:20px;text-align:center;opacity:.6;transition:opacity .15s}
-.sb-btn.active .sb-icon{opacity:1}
+.sb-item:hover{color:var(--t1);background:rgba(255,255,255,.03)}
+.sb-item.active{color:var(--cyan);border-left-color:var(--cyan);background:rgba(0,229,255,.05)}
+.sb-icon{
+  width:18px;height:18px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  opacity:.5;transition:opacity .15s;
+}
+.sb-item.active .sb-icon,.sb-item:hover .sb-icon{opacity:1}
+.sb-icon svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.sb-divider{height:1px;background:var(--rim);margin:8px 16px}
 
 /* ══════════════════════════════════════════════
    MAIN CONTENT
@@ -192,8 +216,8 @@ input,select,button,textarea{font-family:var(--body)}
   padding:3px 10px;border-radius:100px;white-space:nowrap;flex-shrink:0;
 }
 .show-card-meta{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
-.show-meta-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t3)}
-.show-meta-icon{font-size:12px;width:16px;text-align:center;flex-shrink:0}
+.show-meta-row{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--t3)}
+.show-meta-icon{display:inline-flex;align-items:center;flex-shrink:0}
 .show-card-actions{display:flex;gap:8px}
 
 /* ══════════════════════════════════════════════
@@ -325,6 +349,11 @@ table.ch-tbl{width:100%;border-collapse:collapse}
 .gear-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--rim)}
 .gear-section-title{font-size:14px;font-weight:600;color:var(--t2);display:flex;align-items:center;gap:8px}
 .gear-section-count{font-family:var(--mono);font-size:11px;color:var(--t4)}
+.gear-cat-badge{
+  font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:1px;
+  color:var(--t4);background:var(--s4);border:1px solid var(--rim);
+  padding:2px 7px;border-radius:4px;
+}
 .gear-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
 .gear-item{background:var(--s2);border:1px solid var(--rim);border-radius:12px;padding:13px 15px;display:flex;justify-content:space-between;gap:8px;transition:all .15s}
 .gear-item:hover{border-color:var(--rim2);background:var(--s3)}
@@ -455,25 +484,45 @@ table.ch-tbl{width:100%;border-collapse:collapse}
 
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
-      <div class="sb-group hidden" id="sb-production">
-        <div class="sb-group-label">Production</div>
-        <div class="sb-btn" data-v="channels" onclick="sv('channels')">
-          <span class="sb-icon">⊞</span>Channel List
-        </div>
-        <div class="sb-btn" data-v="inventory" onclick="sv('inventory')">
-          <span class="sb-icon">◈</span>Inventory
+      <div class="sb-logo" onclick="goShows()">
+        <div class="sb-logo-text">TechRider <span>PRO</span></div>
+      </div>
+
+      <div class="sb-section">
+        <div class="sb-section-label">Shows</div>
+        <div class="sb-item" data-v="shows" onclick="goShows()">
+          <span class="sb-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+          All Productions
         </div>
       </div>
-      <div class="sb-group">
-        <div class="sb-group-label">Library</div>
-        <div class="sb-btn" data-v="gear" onclick="sv('gear')">
-          <span class="sb-icon">◎</span>Gear Library
+
+      <div class="sb-section hidden" id="sb-production">
+        <div class="sb-section-label">Current Show</div>
+        <div class="sb-item" data-v="channels" onclick="sv('channels')">
+          <span class="sb-icon"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span>
+          Channel List
         </div>
-        <div class="sb-btn" data-v="venues" onclick="sv('venues')">
-          <span class="sb-icon">📍</span>Venues
+        <div class="sb-item" data-v="inventory" onclick="sv('inventory')">
+          <span class="sb-icon"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="4" rx="1"/><rect x="2" y="10" width="20" height="4" rx="1"/><rect x="2" y="17" width="20" height="4" rx="1"/></svg></span>
+          Inventory
         </div>
-        <div class="sb-btn" data-v="directors" onclick="sv('directors')">
-          <span class="sb-icon">👤</span>Directors
+      </div>
+
+      <div class="sb-divider"></div>
+
+      <div class="sb-section">
+        <div class="sb-section-label">Library</div>
+        <div class="sb-item" data-v="gear" onclick="sv('gear')">
+          <span class="sb-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93A10 10 0 0 1 19.07 19.07"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg></span>
+          Gear Library
+        </div>
+        <div class="sb-item" data-v="venues" onclick="sv('venues')">
+          <span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+          Venues
+        </div>
+        <div class="sb-item" data-v="directors" onclick="sv('directors')">
+          <span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+          Directors
         </div>
       </div>
     </div>
@@ -507,7 +556,7 @@ table.ch-tbl{width:100%;border-collapse:collapse}
           </div>
           <div id="inv-bar" style="margin-bottom:22px"></div>
           <div id="ch-empty" class="empty-state hidden">
-            <div class="empty-icon">⊞</div>
+            <div class="empty-icon">—</div>
             <div class="empty-text">No channels yet — click Add Channel to start patching</div>
           </div>
           <div class="ch-table-wrap" id="ch-table-wrap">
@@ -765,15 +814,15 @@ const db = getFirestore(fbApp);
 
 /* ─── GEAR CATEGORIES ─────────────────────────────── */
 const GCATS = {
-  microphones:{l:"Microphones",i:"🎙️"},
-  di_boxes:{l:"DI Boxes",i:"◈"},
-  amplifiers:{l:"Amplifiers",i:"🔊"},
-  monitors:{l:"Monitors",i:"◫"},
-  consoles:{l:"Consoles",i:"⊟"},
-  cables:{l:"Cables",i:"⌇"},
-  accessories:{l:"Accessories",i:"⊕"},
-  power:{l:"Power",i:"⚡"},
-  wireless:{l:"Wireless Systems",i:"📡"},
+  microphones:{l:"Microphones",i:"mic"},
+  di_boxes:{l:"DI Boxes",i:"di"},
+  amplifiers:{l:"Amplifiers",i:"amp"},
+  monitors:{l:"Monitors",i:"mon"},
+  consoles:{l:"Consoles",i:"con"},
+  cables:{l:"Cables",i:"cbl"},
+  accessories:{l:"Accessories",i:"acc"},
+  power:{l:"Power",i:"pwr"},
+  wireless:{l:"Wireless Systems",i:"rf"},
 };
 
 /* ─── STATE ─────────────────────────────────────────── */
@@ -904,7 +953,9 @@ window.goShows=function(){
     document.getElementById("pg-"+x).classList.add("hidden"));
   document.getElementById("pg-shows").classList.remove("hidden");
   document.getElementById("sb-production").classList.add("hidden");
-  document.querySelectorAll(".sb-btn").forEach(el=>el.classList.remove("active"));
+  document.querySelectorAll(".sb-item").forEach(el=>el.classList.remove("active"));
+  const showsBtn=document.querySelector('.sb-item[data-v="shows"]');
+  if(showsBtn) showsBtn.classList.add("active");
   document.getElementById("bc").innerHTML=
     "<span class=\"bc-item active\" onclick=\"goShows()\">Productions</span>";
   renderShows();
@@ -929,7 +980,7 @@ window.openShow=function(id){
 window.sv=function(v){
   ["channels","inventory","gear","venues","directors"].forEach(x=>
     document.getElementById("pg-"+x).classList.toggle("hidden",x!==v));
-  document.querySelectorAll(".sb-btn").forEach(el=>el.classList.toggle("active",el.dataset.v===v));
+  document.querySelectorAll(".sb-item").forEach(el=>el.classList.toggle("active",el.dataset.v===v));
   if(v==="channels")  renderChannels();
   if(v==="inventory") renderInvFull();
   if(v==="gear")      renderGear();
@@ -938,6 +989,10 @@ window.sv=function(v){
 };
 
 /* ─── SHOWS ──────────────────────────────────────────── */
+// Inline SVG icons for show cards (no emoji)
+const svg_venue='<svg style="width:12px;height:12px;flex-shrink:0;opacity:.45;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+const svg_date='<svg style="width:12px;height:12px;flex-shrink:0;opacity:.45;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+const svg_dir='<svg style="width:12px;height:12px;flex-shrink:0;opacity:.45;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
 function renderShows(){
   const g=document.getElementById("shows-grid"); g.innerHTML="";
   if(!shows.length){
@@ -953,9 +1008,9 @@ function renderShows(){
         "<div class=\"show-card-ch\">"+cc+" ch</div>"+
       "</div>"+
       "<div class=\"show-card-meta\">"+
-        "<div class=\"show-meta-row\"><span class=\"show-meta-icon\">📍</span>"+(s.venue||"—")+"</div>"+
-        "<div class=\"show-meta-row\"><span class=\"show-meta-icon\">📅</span>"+(s.date||"—")+"</div>"+
-        "<div class=\"show-meta-row\"><span class=\"show-meta-icon\">🎬</span>"+(s.director||"—")+" · "+(s.md||"—")+"</div>"+
+        "<div class=\"show-meta-row\"><span class=\"show-meta-icon\">·</span>"+(s.venue||"—")+"</div>"+
+        "<div class=\"show-meta-row\">"+svg_date+"&nbsp;"+(s.date||"—")+"</div>"+
+        "<div class=\"show-meta-row\">"+svg_dir+"&nbsp;"+(s.director||"—")+(s.md?" · "+s.md:"")+"</div>"+
       "</div>"+
       "<div class=\"show-card-actions\">"+
         "<button class=\"btn btn-primary btn-sm\" style=\"flex:1\" onclick=\"event.stopPropagation();openShow('"+s.id+"')\">Open →</button>"+
@@ -1197,7 +1252,7 @@ function renderGear(){
     const safecat=cat.replace(/'/g,"\\'");
     sec.innerHTML=
       "<div class=\"gear-section-header\">"+
-        "<div class=\"gear-section-title\"><span style=\"font-size:18px\">"+meta.i+"</span>"+meta.l+"<span class=\"gear-section-count\">"+items.length+"</span></div>"+
+        "<div class=\"gear-section-title\"><span class=\"gear-cat-badge\">"+meta.i.toUpperCase()+"</span>"+meta.l+"<span class=\"gear-section-count\">"+items.length+"</span></div>"+
         "<button class=\"btn btn-green btn-sm\" onclick=\"openGearModal('"+safecat+"',null)\">+ Add</button>"+
       "</div>"+
       "<div class=\"gear-grid\" id=\"gg-"+cat+"\">"+
@@ -1313,7 +1368,7 @@ window.delGear=async function(cat,id){
 function renderVenues(){
   const el=document.getElementById("venues-content"); el.innerHTML="";
   if(!venues.length){
-    el.innerHTML="<div class=\"empty-state\"><div class=\"empty-icon\">📍</div><div class=\"empty-text\">No venues yet — click Add Venue to get started</div></div>";
+    el.innerHTML="<div class=\"empty-state\"><div class=\"empty-icon\">—</div><div class=\"empty-text\">No venues yet — click Add Venue to get started</div></div>";
     return;
   }
   const grid=document.createElement("div"); grid.className="lib-grid";
@@ -1323,10 +1378,10 @@ function renderVenues(){
     card.innerHTML=
       "<div class=\"lib-card-name\">"+v.name+"</div>"+
       "<div class=\"lib-card-meta\">"+
-        (v.city?"<span>📍 "+v.city+"</span>":"")+
-        (v.cap?"<span>👥 Capacity: "+v.cap+"</span>":"")+
-        (v.stage?"<span>🎭 "+v.stage+"</span>":"")+
-        (v.notes?"<span>📝 "+v.notes+"</span>":"")+
+        (v.city?"<span class=\"meta-venue\">"+v.city+"</span>":"")+
+        (v.cap?"<span class=\"meta-cap\">Capacity: "+v.cap+"</span>":"")+
+        (v.stage?"<span class=\"meta-stage\">"+v.stage+"</span>":"")+
+        (v.notes?"<span class=\"meta-note\">"+v.notes+"</span>":"")+
       "</div>"+
       "<div class=\"lib-card-actions\">"+
         "<button class=\"btn btn-sm\" onclick=\"openVenueModal('"+sid+"')\">Edit</button>"+
@@ -1375,7 +1430,7 @@ window.delVenue=async function(id){
 function renderDirectors(){
   const el=document.getElementById("directors-content"); el.innerHTML="";
   if(!directors.length){
-    el.innerHTML="<div class=\"empty-state\"><div class=\"empty-icon\">👤</div><div class=\"empty-text\">No directors yet — click Add Director to get started</div></div>";
+    el.innerHTML="<div class=\"empty-state\"><div class=\"empty-icon\">—</div><div class=\"empty-text\">No directors yet — click Add Director to get started</div></div>";
     return;
   }
   const grid=document.createElement("div"); grid.className="lib-grid";
@@ -1388,8 +1443,8 @@ function renderDirectors(){
       "<div class=\"lib-card-name\">"+d.name+"</div>"+
       "<div class=\"lib-card-role\"><span class=\"pill "+roleColor+"\">"+roleLabel+"</span></div>"+
       "<div class=\"lib-card-meta\">"+
-        (d.email?"<span>✉️ "+d.email+"</span>":"")+
-        (d.notes?"<span>📝 "+d.notes+"</span>":"")+
+        (d.email?"<span class=\"meta-email\">"+d.email+"</span>":"")+
+        (d.notes?"<span class=\"meta-note\">"+d.notes+"</span>":"")+
       "</div>"+
       "<div class=\"lib-card-actions\">"+
         "<button class=\"btn btn-sm\" onclick=\"openDirectorModal('"+sid+"')\">Edit</button>"+
