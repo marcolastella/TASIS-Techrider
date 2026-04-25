@@ -978,6 +978,9 @@ window.openShow=function(id){
 };
 
 window.sv=function(v){
+  // Hide shows grid whenever navigating to any library/production view
+  document.getElementById("pg-shows").classList.add("hidden");
+  document.getElementById("btn-new-show").classList.add("hidden");
   ["channels","inventory","gear","venues","directors"].forEach(x=>
     document.getElementById("pg-"+x).classList.toggle("hidden",x!==v));
   document.querySelectorAll(".sb-item").forEach(el=>el.classList.toggle("active",el.dataset.v===v));
@@ -1285,7 +1288,7 @@ function buildGearCatSelect(currentCat){
   sel.innerHTML="";
   Object.entries(GCATS).forEach(([k,v])=>{
     const opt=document.createElement("option");
-    opt.value=k; opt.textContent=v.i+" "+v.l;
+    opt.value=k; opt.textContent=v.l;
     if(k===currentCat) opt.selected=true;
     sel.appendChild(opt);
   });
