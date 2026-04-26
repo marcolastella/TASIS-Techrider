@@ -407,6 +407,11 @@ table.ch-tbl{width:100%;border-collapse:collapse}
 .sku-lib-cat{font-size:11px}
 .sku-lib-used{font-family:var(--mono);font-size:11px;color:var(--t3)}
 .sku-lib-used b{color:var(--violet)}
+.status-pill{font-family:var(--mono);font-size:10px;font-weight:600;padding:3px 10px;border-radius:100px;letter-spacing:.5px;white-space:nowrap}
+.status-ready{background:rgba(0,229,160,.1);color:var(--green);border:1px solid rgba(0,229,160,.25)}
+.status-maintenance{background:rgba(255,170,51,.1);color:var(--amber);border:1px solid rgba(255,170,51,.25)}
+.status-broken{background:rgba(255,68,102,.1);color:var(--red);border:1px solid rgba(255,68,102,.25)}
+.status-unknown{background:var(--s4);color:var(--t4);border:1px solid var(--rim)}
 .sku-preview{
   font-family:var(--mono);font-size:20px;font-weight:700;color:var(--cyan);
   letter-spacing:2px;padding:12px 16px;background:var(--s3);
@@ -746,7 +751,6 @@ table.ch-tbl{width:100%;border-collapse:collapse}
                   Assigned
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
-                  <input class="sku-filter" id="sku-filter" placeholder="Filter SKU or name…" oninput="renderSku()"/>
                   <span class="sku-col-count" id="sku-assigned-count">0</span>
                 </div>
               </div>
@@ -762,10 +766,15 @@ table.ch-tbl{width:100%;border-collapse:collapse}
                 SKU Code Library
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <select class="sku-filter" id="sku-lib-cat-filter" style="width:160px" onchange="renderSku()">
+                <select class="sku-filter" id="sku-lib-cat-filter" style="width:170px" onchange="renderSku()">
                   <option value="">All categories</option>
                 </select>
-                <input class="sku-filter" id="sku-lib-search" placeholder="Search code or desc…" oninput="renderSku()"/>
+                <select class="sku-filter" id="sku-lib-status-filter" style="width:150px" onchange="renderSku()">
+                  <option value="">All statuses</option>
+                  <option value="ready">Ready</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="broken">Broken</option>
+                </select>
               </div>
             </div>
             <div class="sku-lib-table-wrap">
@@ -774,6 +783,7 @@ table.ch-tbl{width:100%;border-collapse:collapse}
                   <th>SKU CODE</th>
                   <th>DESCRIPTION</th>
                   <th>CATEGORY</th>
+                  <th>STATUS</th>
                   <th>USED BY</th>
                   <th class="no-print"></th>
                 </tr></thead>
@@ -1047,6 +1057,16 @@ table.ch-tbl{width:100%;border-collapse:collapse}
     <div class="form-row">
       <div class="form-field"><label class="form-label">Notes / Description</label><input class="form-input" id="gm-notes" placeholder="e.g. Dynamic cardioid, wired"/></div>
       <div class="form-field"><label class="form-label">SKU (optional)</label><input class="form-input" id="gm-sku" placeholder="e.g. AUD-MIC-DYN"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="gm-status">
+          <option value="ready">Ready — in stock &amp; operational</option>
+          <option value="maintenance">Maintenance — needs service</option>
+          <option value="broken">Broken — out of service</option>
+        </select>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeOv('gear-modal')">Cancel</button>
@@ -1638,6 +1658,7 @@ window.openGearModal=function(cat,id){
   document.getElementById("gm-name").value=item?item.name:"";
   document.getElementById("gm-notes").value=item?item.notes||"":"";
   document.getElementById("gm-sku").value=item?item.sku||"":"";
+  document.getElementById("gm-status").value=item?item.status||"ready":"ready";
   document.getElementById("gm-newcat-name").value="";
   document.getElementById("gm-newcat-icon").value="";
   document.getElementById("gm-newcat-row").classList.add("hidden");
@@ -1657,7 +1678,7 @@ window.saveGear=async function(){
     gear[cat]=[];
   }
   const id=editGearId||("g"+Date.now());
-  const item={name,category:cat,notes:document.getElementById("gm-notes").value,sku:document.getElementById("gm-sku").value};
+  const item={name,category:cat,notes:document.getElementById("gm-notes").value,sku:document.getElementById("gm-sku").value,status:document.getElementById("gm-status").value||"ready"};
   await fsWrite("gear",id,item);
   if(!gear[cat]) gear[cat]=[];
   const i=gear[cat].findIndex(x=>x.id===id);
@@ -1675,6 +1696,7 @@ window.dupeGear=function(cat,id){
   document.getElementById("gm-name").value=item.name+" (copy)";
   document.getElementById("gm-notes").value=item.notes||"";
   document.getElementById("gm-sku").value="";
+  document.getElementById("gm-status").value="ready";
   document.getElementById("gm-newcat-name").value="";
   document.getElementById("gm-newcat-icon").value="";
   document.getElementById("gm-newcat-row").classList.add("hidden");
@@ -1836,8 +1858,7 @@ function renderSku(){
   const items = getAllGearItems();
   const assigned   = items.filter(i=>i.sku&&i.sku.trim()!=="");
   const unassigned = items.filter(i=>!i.sku||i.sku.trim()==="");
-  const filterEl = document.getElementById("sku-filter");
-  const filter = filterEl ? filterEl.value.toLowerCase() : "";
+  const filter = "";  // filter removed — use category/status dropdowns in library table
 
   // Stats
   document.getElementById("sku-stats").innerHTML=
@@ -1860,9 +1881,10 @@ function renderSku(){
       const info=document.createElement("div"); info.className="sku-row-info";
       info.innerHTML="<div class='sku-row-name'>"+item.name+"</div><div class='sku-row-cat'>"+item._catLabel+"</div>";
       const badge=document.createElement("span"); badge.className="sku-row-code unset"; badge.textContent="NO SKU";
+      const stBadge=document.createElement("span"); stBadge.className="status-pill status-"+(item.status||"ready"); stBadge.textContent=({"ready":"Ready","maintenance":"Maintenance","broken":"Broken"}[item.status||"ready"]||"Ready");
       const acts=document.createElement("div"); acts.className="sku-row-action";
       acts.appendChild(btn);
-      row.appendChild(info); row.appendChild(badge); row.appendChild(acts);
+      row.appendChild(info); row.appendChild(badge); row.appendChild(stBadge); row.appendChild(acts);
       ul.appendChild(row);
     });
   }
@@ -1871,11 +1893,9 @@ function renderSku(){
   const al = document.getElementById("sku-assigned-list");
   document.getElementById("sku-assigned-count").textContent = assigned.length;
   al.innerHTML="";
-  const filtered = filter
-    ? assigned.filter(i=>(i.sku||"").toLowerCase().includes(filter)||(i.name||"").toLowerCase().includes(filter))
-    : assigned;
+  const filtered = assigned;
   if(!filtered.length){
-    al.innerHTML="<div style='padding:24px;text-align:center;color:var(--t4);font-size:13px'>"+(filter?"No results":"No items with SKU yet")+"</div>";
+    al.innerHTML="<div style='padding:24px;text-align:center;color:var(--t4);font-size:13px'>No items with SKU yet</div>";
   } else {
     filtered.forEach(item=>{
       const row=document.createElement("div"); row.className="sku-row";
@@ -1884,9 +1904,10 @@ function renderSku(){
       const info=document.createElement("div"); info.className="sku-row-info";
       info.innerHTML="<div class='sku-row-name'>"+item.name+"</div><div class='sku-row-cat'>"+item._catLabel+"</div>";
       const badge=document.createElement("span"); badge.className="sku-row-code"; badge.textContent=item.sku;
+      const stBadge=document.createElement("span"); stBadge.className="status-pill status-"+(item.status||"ready"); stBadge.textContent=({"ready":"Ready","maintenance":"Maintenance","broken":"Broken"}[item.status||"ready"]||"Ready");
       const acts=document.createElement("div"); acts.className="sku-row-action";
       acts.appendChild(btn);
-      row.appendChild(info); row.appendChild(badge); row.appendChild(acts);
+      row.appendChild(info); row.appendChild(badge); row.appendChild(stBadge); row.appendChild(acts);
       al.appendChild(row);
     });
   }
@@ -1895,12 +1916,21 @@ function renderSku(){
   renderSkuLibTable(items);
 }
 
+function statusPillHtml(status){
+  const map={ready:["Ready","status-ready"],maintenance:["Maintenance","status-maintenance"],broken:["Broken","status-broken"]};
+  const [label,cls]=map[status||"ready"]||["Ready","status-ready"];
+  return "<span class='status-pill "+cls+"'>"+label+"</span>";
+}
+
 function renderSkuLibTable(allItems){
-  // Populate category filter
   const catFilter = document.getElementById("sku-lib-cat-filter");
+  const statusFilter = document.getElementById("sku-lib-status-filter");
   const currentCat = catFilter ? catFilter.value : "";
+  const currentStatus = statusFilter ? statusFilter.value : "";
+
+  // Refresh category dropdown from current skuLib
   if(catFilter){
-    const cats = [...new Set(Object.values(skuLib).map(v=>v.category||"").filter(Boolean))].sort();
+    const cats=[...new Set(Object.values(skuLib).map(v=>v.category||"").filter(Boolean))].sort();
     catFilter.innerHTML="<option value=''>All categories</option>";
     cats.forEach(c=>{
       const o=document.createElement("option"); o.value=c; o.textContent=c;
@@ -1909,8 +1939,6 @@ function renderSkuLibTable(allItems){
     });
   }
 
-  const searchEl = document.getElementById("sku-lib-search");
-  const search = searchEl ? searchEl.value.toLowerCase() : "";
   const tbody = document.getElementById("sku-lib-body");
   const empty = document.getElementById("sku-lib-empty");
   if(!tbody) return;
@@ -1919,31 +1947,41 @@ function renderSkuLibTable(allItems){
   const entries = Object.entries(skuLib)
     .filter(([code,data])=>{
       if(currentCat && (data.category||"")!==currentCat) return false;
-      if(search && !code.toLowerCase().includes(search) && !(data.desc||"").toLowerCase().includes(search)) return false;
       return true;
     })
     .sort((a,b)=>a[0].localeCompare(b[0]));
 
   empty.classList.toggle("hidden", entries.length>0);
 
-  entries.forEach(([code, data])=>{
-    // Count how many gear items use this SKU
-    const usedBy = allItems.filter(i=>i.sku===code);
-    const tr = document.createElement("tr");
-    const editBtn = document.createElement("button");
-    editBtn.className="act-btn"; editBtn.textContent="Edit";
+  entries.forEach(([code,data])=>{
+    // Find all gear items using this SKU
+    const usedBy=allItems.filter(i=>i.sku===code);
+    // Filter by status if set — check across all gear items using this SKU
+    if(currentStatus){
+      const anyMatch=usedBy.some(i=>(i.status||"ready")===currentStatus);
+      if(!anyMatch && usedBy.length>0) return; // skip — no items with that status
+      if(usedBy.length===0) return; // unused SKUs hidden when status filter active
+    }
+
+    // Aggregate status from gear items (worst state wins for display)
+    let aggStatus="ready";
+    if(usedBy.some(i=>i.status==="broken")) aggStatus="broken";
+    else if(usedBy.some(i=>i.status==="maintenance")) aggStatus="maintenance";
+    else if(usedBy.length===0) aggStatus=null;
+
+    const tr=document.createElement("tr");
+    const editBtn=document.createElement("button"); editBtn.className="act-btn"; editBtn.textContent="Edit";
     editBtn.addEventListener("click",()=>openSkuEditModal(code));
-    const delBtn = document.createElement("button");
-    delBtn.className="act-btn del"; delBtn.textContent="×";
+    const delBtn=document.createElement("button"); delBtn.className="act-btn del"; delBtn.textContent="×";
     delBtn.addEventListener("click",()=>deleteSkuCode(code));
-    const actTd = document.createElement("td");
-    actTd.className="no-print";
+    const actTd=document.createElement("td"); actTd.className="no-print";
     actTd.style.cssText="display:flex;gap:4px";
     actTd.appendChild(editBtn); actTd.appendChild(delBtn);
     tr.innerHTML=
       "<td><span class='sku-lib-code'>"+code+"</span></td>"+
       "<td class='sku-lib-desc'>"+(data.desc||"—")+"</td>"+
       "<td><span class='pill pill-muted sku-lib-cat'>"+(data.category||"—")+"</span></td>"+
+      "<td>"+(aggStatus?statusPillHtml(aggStatus):"<span style='color:var(--t4);font-size:11px'>unused</span>")+"</td>"+
       "<td class='sku-lib-used'>"+(usedBy.length?"<b>"+usedBy.length+"</b> item"+(usedBy.length!==1?"s":""):"<span style='color:var(--t4)'>unused</span>")+"</td>";
     tr.appendChild(actTd);
     tbody.appendChild(tr);
@@ -2001,10 +2039,10 @@ window.assignSku=async function(){
   const code=(document.getElementById("sam-custom").value||"").trim().toUpperCase();
   if(!code){document.getElementById("sam-custom").focus();return;}
   const item=(gear[skuTargetCat]||[]).find(x=>x.id===skuTargetId); if(!item)return;
-  // Register in library if new
-  if(!skuLib[code]){
-    const desc=document.getElementById("sam-desc").value.trim();
-    const catLabel=GCATS[skuTargetCat]?GCATS[skuTargetCat].l:skuTargetCat;
+  // Register in library (always upsert so desc/category stay fresh)
+  const desc=document.getElementById("sam-desc").value.trim();
+  const catLabel=GCATS[skuTargetCat]?GCATS[skuTargetCat].l:skuTargetCat;
+  if(!skuLib[code] || (!skuLib[code].desc && desc)){
     await fsWrite("skus",code,{desc,category:catLabel});
     skuLib[code]={desc,category:catLabel};
   }
