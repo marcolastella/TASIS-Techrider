@@ -1186,15 +1186,29 @@ function subscribeChannels(showId){
 /* ─── LOAD FUNCTIONS ─────────────────────────────────── */
 async function loadGear(){
   gear={}; Object.keys(GCATS).forEach(k=>{gear[k]=[];});
+  // Build reverse map: label → key (e.g. "Microphones" → "microphones")
+  const labelToKey={};
+  Object.entries(GCATS).forEach(([k,v])=>{ labelToKey[v.l.toLowerCase()]=k; });
+
   const snap=await getDocs(collection(db,"gear"));
   snap.docs.forEach(d=>{
-    const data=d.data(); const cat=data.category||"accessories";
-    if(!GCATS[cat]) GCATS[cat]={l:cat.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()),i:"⊹"};
+    const data=d.data();
+    let cat=data.category||"accessories";
+    // Normalise: if category is a label ("Microphones") map it to the key ("microphones")
+    const normKey=labelToKey[cat.toLowerCase()];
+    if(normKey) cat=normKey;
+    // If still unknown, register it
+    if(!GCATS[cat]) GCATS[cat]={l:cat.replace(/_/g," ").replace(/\w/g,c=>c.toUpperCase()),i:"⊹"};
     if(!gear[cat]) gear[cat]=[];
-    gear[cat].push({id:d.id,...data});
+    const item={id:d.id,...data,category:cat}; // normalise key
+    gear[cat].push(item);
+    // Silently fix in Firestore if category was stored as label instead of key
+    if(data.category && data.category!==cat){
+      setDoc(doc(db,"gear",d.id),{category:cat},{merge:true}).catch(()=>{});
+    }
   });
   Object.keys(gear).forEach(k=>gear[k].sort((a,b)=>(a.name||"").localeCompare(b.name||"")));
-  // Back-fill skuLib from existing gear sku fields so assigned items always show in library
+  // Back-fill skuLib from existing gear sku fields
   Object.entries(gear).forEach(([cat,items])=>{
     items.forEach(item=>{
       if(item.sku && item.sku.trim() && !skuLib[item.sku]){
@@ -1464,25 +1478,37 @@ function buildGearSelect(selId, categories, currentVal){
   if(!sel) return;
   sel.innerHTML="<option value=''>— Select from Gear Library —</option>";
   let hasItems=false;
+  // Also search by label in case category normalisation hasn't run yet
+  const labelToKey={};
+  Object.entries(GCATS).forEach(([k,v])=>{labelToKey[v.l.toLowerCase()]=k;});
   categories.forEach(cat=>{
-    const items=gear[cat]||[];
+    // Collect items from the key AND from any label-keyed bucket
+    const items=[...(gear[cat]||[])];
+    // Also pull from gear[label] if it exists (legacy data)
+    const label=GCATS[cat]?GCATS[cat].l:cat;
+    if(gear[label]) items.push(...gear[label]);
     if(!items.length) return;
     hasItems=true;
     const grp=document.createElement("optgroup");
-    grp.label=GCATS[cat]?GCATS[cat].l:cat;
+    grp.label=label;
+    // Deduplicate by id
+    const seen=new Set();
     items.forEach(item=>{
+      if(seen.has(item.id)) return; seen.add(item.id);
       const opt=document.createElement("option");
       opt.value=item.name; opt.textContent=item.name+(item.notes?" — "+item.notes:"");
       if(item.name===currentVal) opt.selected=true;
       grp.appendChild(opt);
     });
-    sel.appendChild(grp);
+    if(grp.children.length) sel.appendChild(grp);
   });
   if(!hasItems){
     const o=document.createElement("option"); o.disabled=true;
-    o.textContent="No items in library yet"; sel.appendChild(o);
+    o.textContent="No items in library yet — add gear in the Gear Library tab";
+    sel.appendChild(o);
   }
 }
+
 
 window.openCHModal=function(idx){
   editCHIdx=(idx!==null&&idx!==undefined)?idx:null;
