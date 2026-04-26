@@ -1605,14 +1605,16 @@ function renderGear(){
       const card=document.createElement("div"); card.className="gear-item";
       const sc=cat.replace(/'/g,"\\'");
       const si=item.id.replace(/'/g,"\\'");
+      const st=item.status||"ready";
       card.innerHTML=
-        "<div>"+
-          "<div class=\"gi-name\">"+item.name+"</div>"+
-          (item.notes?"<div class=\"gi-sub\">"+item.notes+"</div>":"")+
-          (item.sku?"<div class=\"gi-sku\">"+item.sku+"</div>":"")+
+        "<div style='display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0'>"+
+          "<span class='status-dot " + st + "'></span>"+
+          "<div style='flex:1;min-width:0'>"+
+            "<div class=\"gi-name\">"+item.name+"</div>"+
+            (item.notes?"<div class=\"gi-sub\">"+item.notes+"</div>":"")+
+            (item.sku?"<div class=\"gi-sku\">"+item.sku+"</div>":"")+
+          "</div>"+
         "</div>"+
-          "</div>"+  // close inner wrapper
-        "</div>"+  // close flex row
         "<div class=\"gi-actions\">"+
           "<button class=\"act-btn\" onclick=\"openGearModal('"+sc+"','"+si+"')\">Edit</button>"+
           "<button class=\"act-btn\" onclick=\"dupeGear('"+sc+"','"+si+"')\" title=\"Duplicate\">⧉</button>"+
@@ -2012,21 +2014,24 @@ function renderSkuLibTable(allItems){
   if(!hasAny) return;
 
   Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([cat,entries])=>{
+    // Pre-filter entries by status so we don't render empty category headers
+    const visibleEntries=entries.filter(([code,data])=>{
+      const usedBy=allItems.filter(i=>i.sku===code);
+      if(!currentStatus) return true;
+      if(usedBy.length===0) return false;
+      const worstStatus=usedBy.some(i=>i.status==="broken")?"broken":
+                        usedBy.some(i=>i.status==="maintenance")?"maintenance":"ready";
+      return worstStatus===currentStatus;
+    });
+    if(!visibleEntries.length) return; // skip entire category if nothing matches
+
     // Category separator row
     const catRow=document.createElement("tr");
-    catRow.innerHTML="<td colspan='5' style='padding:12px 14px 6px;font-family:var(--mono);font-size:9px;color:var(--t4);letter-spacing:2px;text-transform:uppercase;background:var(--s3);border-bottom:1px solid var(--rim)'>"+cat+"</td>";
+    catRow.innerHTML="<td colspan='5' style='padding:12px 14px 6px;font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:2px;text-transform:uppercase;background:var(--s3);border-bottom:1px solid var(--rim)'>"+cat+"</td>";
     tbody.appendChild(catRow);
 
-    entries.sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,data])=>{
+    visibleEntries.sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,data])=>{
       const usedBy=allItems.filter(i=>i.sku===code);
-
-      // Status filter — filter by aggregated status of gear items using this SKU
-      if(currentStatus){
-        if(usedBy.length===0) return; // hide unused SKUs when filtering by status
-        const worstStatus=usedBy.some(i=>i.status==="broken")?"broken":
-                          usedBy.some(i=>i.status==="maintenance")?"maintenance":"ready";
-        if(worstStatus!==currentStatus) return;
-      }
 
       // Aggregate status
       let aggStatus="ready";
@@ -2050,7 +2055,7 @@ function renderSkuLibTable(allItems){
       tr.innerHTML=
         "<td><span class='sku-lib-code'>"+code+"</span></td>"+
         "<td class='sku-lib-desc'>"+(data.desc||"—")+"</td>"+
-        "<td id='sku-st-"+code+"'>"+(aggStatus?clickableStatusPill(code,aggStatus):"<span style='color:var(--t4);font-size:11px'>—</span>")+"</td>"+
+        "<td>"+(aggStatus?clickableStatusPill(code,aggStatus):"<span style='color:var(--t4);font-size:11px'>—</span>")+"</td>"+
         "<td style='max-width:260px'>"+namesHtml+"</td>";
       tr.appendChild(actTd);
       tbody.appendChild(tr);
