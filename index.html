@@ -35,7 +35,7 @@
   --mono:'JetBrains Mono',monospace;
 }
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);color:var(--t1);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
+body{background:var(--bg);color:var(--t1);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
 input,select,button,textarea{font-family:var(--body)}
 .hidden{display:none!important}
 
@@ -166,7 +166,7 @@ input,select,button,textarea{font-family:var(--body)}
   display:flex;align-items:center;gap:11px;
   padding:8px 16px;cursor:pointer;
   border-left:2px solid transparent;
-  color:var(--t3);font-size:13px;font-weight:500;
+  color:var(--t3);font-size:14px;font-weight:500;
   transition:all .15s;user-select:none;
   border-radius:0;
 }
@@ -401,7 +401,7 @@ table.ch-tbl{width:100%;border-collapse:collapse}
 }
 .sku-lib-table tbody tr:last-child td{border-bottom:none}
 .sku-lib-table tbody tr:hover{background:var(--s3)}
-.sku-lib-code{font-family:var(--mono);font-weight:600;color:var(--cyan);letter-spacing:1px;font-size:12px}
+.sku-lib-code{font-family:var(--mono);font-weight:600;color:var(--cyan);letter-spacing:1px;font-size:13px}
 .sku-lib-desc{color:var(--t2)}
 .sku-lib-cat{font-size:11px}
 .sku-lib-used{font-family:var(--mono);font-size:11px;color:var(--t3)}
@@ -1663,17 +1663,20 @@ function renderGear(){
 function buildGearCatSelect(currentCat){
   const sel=document.getElementById("gm-cat");
   sel.innerHTML="";
+  // Built-in GCATS first
   Object.entries(GCATS).forEach(([k,v])=>{
     const opt=document.createElement("option");
     opt.value=k; opt.textContent=v.l;
-    if(k===currentCat) opt.selected=true;
+    if(k===currentCat || v.l===currentCat) opt.selected=true;
     sel.appendChild(opt);
   });
+  // Custom categories from gear (not in GCATS)
   Object.keys(gear).forEach(k=>{
     if(GCATS[k]) return;
+    const label=k.replace(/_/g," ").replace(/\w/g,c=>c.toUpperCase());
     const opt=document.createElement("option");
-    opt.value=k; opt.textContent="⊹ "+k;
-    if(k===currentCat) opt.selected=true;
+    opt.value=k; opt.textContent=label;
+    if(k===currentCat || label===currentCat) opt.selected=true;
     sel.appendChild(opt);
   });
   const sep=document.createElement("option"); sep.disabled=true; sep.textContent="──────────";
@@ -2104,9 +2107,9 @@ function renderSkuLibTable(allItems){
     // Category header row — name + pencil icon to rename inline
     const catRow=document.createElement("tr");
     catRow.innerHTML=
-      "<td colspan='4' style='padding:10px 14px 6px;background:var(--s3);border-bottom:1px solid var(--rim)'>"+
+      "<td colspan='5' style='padding:10px 14px 6px;background:var(--s3);border-bottom:1px solid var(--rim)'>"+
         "<div style='display:flex;align-items:center;gap:8px' id='cat-hdr-"+cat.replace(/[^a-z0-9]/gi,"_")+"'>"+
-          "<span style='font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:2px;text-transform:uppercase'>"+cat+"</span>"+
+          "<span style='font-family:var(--mono);font-size:10px;color:var(--t2);letter-spacing:2px;text-transform:uppercase'>"+cat+"</span>"+
           "<span class='cat-edit-icon' data-edit-cat='"+cat+"' title='Rename category'>✎</span>"+
         "</div>"+
       "</td>";
