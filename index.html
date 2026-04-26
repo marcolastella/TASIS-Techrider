@@ -968,6 +968,35 @@ table.ch-tbl{width:100%;border-collapse:collapse}
   </div>
 </div>
 
+<!-- SKU Category Rename Modal -->
+<div class="modal-overlay hidden" id="sku-cat-rename-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Rename SKU Category</div>
+      <button class="modal-close" onclick="closeOv('sku-cat-rename-modal')">×</button>
+    </div>
+    <div style="font-size:13px;color:var(--t3);margin-bottom:14px">
+      Renaming will update all SKU codes and gear items assigned to this category.
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">Current Name</label>
+        <input class="form-input" id="scrm-old" readonly style="opacity:.5"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">New Name</label>
+        <input class="form-input" id="scrm-new" placeholder="e.g. Stage Microphones"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeOv('sku-cat-rename-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="renameSkuCategory()">Rename &amp; Update All</button>
+    </div>
+  </div>
+</div>
+
 <!-- Channel Modal -->
 <div class="modal-overlay hidden" id="ch-modal">
   <div class="modal">
@@ -1993,6 +2022,8 @@ function renderSkuLibTable(allItems){
       if(c===currentCat) o.selected=true;
       catFilter.appendChild(o);
     });
+    // Restore selected value after rebuild
+    if(currentCat) catFilter.value=currentCat;
   }
 
   const tbody = document.getElementById("sku-lib-body");
@@ -2027,7 +2058,13 @@ function renderSkuLibTable(allItems){
 
     // Category separator row
     const catRow=document.createElement("tr");
-    catRow.innerHTML="<td colspan='5' style='padding:12px 14px 6px;font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:2px;text-transform:uppercase;background:var(--s3);border-bottom:1px solid var(--rim)'>"+cat+"</td>";
+    catRow.innerHTML=
+      "<td colspan='5' style='padding:10px 14px 6px;background:var(--s3);border-bottom:1px solid var(--rim)'>"+
+        "<div style='display:flex;align-items:center;justify-content:space-between'>"+
+          "<span style='font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:2px;text-transform:uppercase'>"+cat+"</span>"+
+          "<button class='act-btn no-print' style='font-size:10px;padding:2px 8px' data-rename-cat='"+cat.replace(/'/g,"\'")+"'>Rename</button>"+
+        "</div>"+
+      "</td>";
     tbody.appendChild(catRow);
 
     visibleEntries.sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,data])=>{
@@ -2063,10 +2100,12 @@ function renderSkuLibTable(allItems){
   });
 }
 
-// Event delegation for clickable status pills in SKU library table
+// Event delegation for SKU library table interactions
 document.addEventListener("click",function(e){
-  const el=e.target.closest("[data-sku-cycle]");
-  if(el) window.cycleSkuStatus(el.getAttribute("data-sku-cycle"));
+  const cycle=e.target.closest("[data-sku-cycle]");
+  if(cycle){ window.cycleSkuStatus(cycle.getAttribute("data-sku-cycle")); return; }
+  const rename=e.target.closest("[data-rename-cat]");
+  if(rename){ window.openSkuCatRenameModal(rename.getAttribute("data-rename-cat")); }
 });
 
 function skuStatCard(val,lbl,warn){
@@ -2185,6 +2224,43 @@ window.saveSku=async function(){
   }
   closeOv("sku-builder-modal");
   renderSku();
+};
+
+window.openSkuCatRenameModal=function(cat){
+  document.getElementById("scrm-old").value=cat;
+  document.getElementById("scrm-new").value=cat;
+  document.getElementById("sku-cat-rename-modal").classList.remove("hidden");
+};
+
+window.renameSkuCategory=async function(){
+  const oldName=document.getElementById("scrm-old").value.trim();
+  const newName=document.getElementById("scrm-new").value.trim();
+  if(!newName||newName===oldName){ closeOv("sku-cat-rename-modal"); return; }
+  showSync("saving","Renaming category…");
+  try{
+    // Update all SKU codes in skuLib that have this category
+    const skuUpdates=Object.entries(skuLib).filter(([,d])=>d.category===oldName);
+    for(const [code,data] of skuUpdates){
+      await setDoc(doc(db,"skus",code),{category:newName},{merge:true});
+      skuLib[code]={...data,category:newName};
+    }
+    // Update all gear items that have this category
+    const gearUpdates=getAllGearItems().filter(i=>i._catLabel===oldName||(GCATS[i._cat]&&GCATS[i._cat].l===oldName));
+    for(const item of gearUpdates){
+      // Category key stays the same — only the label changes
+      // But if category was stored as label, update it too
+      const stored=gear[item._cat]?gear[item._cat].find(x=>x.id===item.id):null;
+      if(stored&&stored.category===oldName){
+        await setDoc(doc(db,"gear",item.id),{category:newName},{merge:true});
+        stored.category=newName;
+      }
+    }
+    // Update GCATS label if it matches
+    Object.entries(GCATS).forEach(([k,v])=>{ if(v.l===oldName) v.l=newName; });
+    showSync("saved","Category renamed ✓");
+    closeOv("sku-cat-rename-modal");
+    renderSku();
+  }catch(e){ showSync("error","Rename failed"); console.error(e); }
 };
 
 window.deleteSkuCode=async function(code){
