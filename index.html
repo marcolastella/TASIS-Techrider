@@ -769,12 +769,7 @@ table.ch-tbl{width:100%;border-collapse:collapse}
                 <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
                 SKU Code Library
               </div>
-              <div style="display:flex;gap:8px;align-items:center">
-                <input class="sku-filter" id="sku-lib-search" placeholder="Search SKU… press Enter" style="width:240px"
-                  onkeydown="if(event.key==='Enter') renderSkuLibOnly()"
-                  oninput="if(!this.value) renderSkuLibOnly()"/>
-                <button class="btn btn-sm" onclick="renderSkuLibOnly()" style="padding:6px 14px;font-size:12px">Search</button>
-              </div>
+
             </div>
             <div class="sku-lib-table-wrap">
               <table class="sku-lib-table">
@@ -2057,8 +2052,7 @@ function renderSkuLibOnly(){
 }
 
 function renderSkuLibTable(allItems){
-  const searchEl=document.getElementById("sku-lib-search");
-  const q=(searchEl?searchEl.value:"").trim().toLowerCase();
+
 
   const tbody=document.getElementById("sku-lib-body");
   const empty=document.getElementById("sku-lib-empty");
@@ -2068,7 +2062,7 @@ function renderSkuLibTable(allItems){
   // Group SKU codes by category, filtered by search query
   const grouped={};
   Object.entries(skuLib).forEach(([code,data])=>{
-    if(q && !code.toLowerCase().includes(q) && !(data.desc||"").toLowerCase().includes(q) && !(data.category||"").toLowerCase().includes(q)) return;
+
     const cat=data.category||"Uncategorized";
     if(!grouped[cat]) grouped[cat]=[];
     grouped[cat].push([code,data]);
