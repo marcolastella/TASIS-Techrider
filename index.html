@@ -326,6 +326,68 @@ table.ch-tbl{width:100%;border-collapse:collapse}
 .pill-muted{background:var(--s3);color:var(--t3);border:1px solid var(--rim)}
 
 /* ══════════════════════════════════════════════
+   SKU MANAGER
+══════════════════════════════════════════════ */
+.sku-stats{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:10px;margin-bottom:22px;
+}
+.sku-stat-card{
+  background:var(--s2);border:1px solid var(--rim);border-radius:12px;
+  padding:14px 16px;text-align:center;
+}
+.sku-stat-val{font-size:28px;font-weight:700;font-family:var(--mono);color:var(--cyan);line-height:1}
+.sku-stat-val.warn{color:var(--amber)}
+.sku-stat-lbl{font-size:10px;color:var(--t3);letter-spacing:1.5px;margin-top:5px;font-family:var(--mono)}
+.sku-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.sku-layout{grid-template-columns:1fr}}
+.sku-col{background:var(--s2);border:1px solid var(--rim);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.sku-col-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--rim);
+  background:var(--s3);gap:10px;flex-wrap:wrap;
+}
+.sku-col-title{
+  display:flex;align-items:center;gap:8px;
+  font-size:13px;font-weight:600;color:var(--t2);
+}
+.sku-col-title svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;opacity:.6}
+.sku-col-count{
+  font-family:var(--mono);font-size:11px;color:var(--t4);
+  background:var(--s4);border:1px solid var(--rim);
+  padding:2px 8px;border-radius:100px;
+}
+.sku-filter{
+  background:var(--s4);border:1px solid var(--rim);border-radius:6px;
+  color:var(--t1);font-size:12px;font-family:var(--mono);
+  padding:5px 10px;outline:none;width:160px;transition:border-color .15s;
+}
+.sku-filter:focus{border-color:var(--cyan)}
+.sku-item-list{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:5px;max-height:480px}
+.sku-row{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:8px;border:1px solid var(--rim);
+  background:var(--s1);transition:all .15s;
+}
+.sku-row:hover{background:var(--s3);border-color:var(--rim2)}
+.sku-row-info{flex:1;min-width:0}
+.sku-row-name{font-size:13px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sku-row-cat{font-size:11px;color:var(--t3);margin-top:1px}
+.sku-row-code{
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  color:var(--cyan);background:rgba(0,229,255,.07);
+  border:1px solid rgba(0,229,255,.15);padding:2px 8px;border-radius:4px;
+  white-space:nowrap;flex-shrink:0;
+}
+.sku-row-code.unset{color:var(--amber);background:rgba(255,170,51,.07);border-color:rgba(255,170,51,.15)}
+.sku-row-action{flex-shrink:0}
+.sku-preview{
+  font-family:var(--mono);font-size:20px;font-weight:700;color:var(--cyan);
+  letter-spacing:2px;padding:12px 16px;background:var(--s3);
+  border:1px solid var(--rim);border-radius:8px;
+}
+
+/* ══════════════════════════════════════════════
    VENUES & DIRECTORS
 ══════════════════════════════════════════════ */
 .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
@@ -524,6 +586,10 @@ table.ch-tbl{width:100%;border-collapse:collapse}
           <span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
           Directors
         </div>
+        <div class="sb-item" data-v="sku" onclick="sv('sku')">
+          <span class="sb-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span>
+          SKU Manager
+        </div>
       </div>
     </div>
 
@@ -617,6 +683,50 @@ table.ch-tbl{width:100%;border-collapse:collapse}
             <button class="btn-shimmer no-print" onclick="openDirectorModal(null)">+ Add Director</button>
           </div>
           <div id="directors-content"></div>
+        </div>
+
+        <!-- SKU MANAGER -->
+        <div id="pg-sku" class="hidden">
+          <div class="page-header">
+            <div>
+              <div class="page-title">SKU Manager</div>
+              <div class="page-sub">Manage inventory codes across your entire gear library</div>
+            </div>
+            <button class="btn-shimmer no-print" onclick="openSkuBuilderModal()">+ New SKU</button>
+          </div>
+
+          <!-- STATS BAR -->
+          <div class="sku-stats" id="sku-stats"></div>
+
+          <!-- TWO-COLUMN LAYOUT -->
+          <div class="sku-layout">
+            <!-- LEFT: Items WITHOUT SKU -->
+            <div class="sku-col">
+              <div class="sku-col-header">
+                <div class="sku-col-title">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  Unassigned
+                </div>
+                <span class="sku-col-count" id="sku-unassigned-count">0</span>
+              </div>
+              <div id="sku-unassigned-list" class="sku-item-list"></div>
+            </div>
+
+            <!-- RIGHT: Items WITH SKU -->
+            <div class="sku-col">
+              <div class="sku-col-header">
+                <div class="sku-col-title">
+                  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  Assigned
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <input class="sku-filter" id="sku-filter" placeholder="Filter SKU or name…" oninput="renderSku()"/>
+                  <span class="sku-col-count" id="sku-assigned-count">0</span>
+                </div>
+              </div>
+              <div id="sku-assigned-list" class="sku-item-list"></div>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -720,6 +830,87 @@ table.ch-tbl{width:100%;border-collapse:collapse}
   </div>
 </div>
 
+<!-- SKU Assign Modal -->
+<div class="modal-overlay hidden" id="sku-assign-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="sam-title">Assign SKU</div>
+      <button class="modal-close" onclick="closeOv('sku-assign-modal')">×</button>
+    </div>
+    <div style="margin-bottom:14px;padding:12px 14px;background:var(--s3);border-radius:10px;border:1px solid var(--rim)">
+      <div style="font-size:11px;color:var(--t3);font-family:var(--mono);letter-spacing:1px;margin-bottom:4px">ITEM</div>
+      <div style="font-size:15px;font-weight:600;color:var(--t1)" id="sam-item-name"></div>
+      <div style="font-size:12px;color:var(--t3);margin-top:2px" id="sam-item-cat"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">Choose existing SKU</label>
+        <select class="form-select" id="sam-existing" onchange="handleSkuSelectChange(this)">
+          <option value="">— Select from library —</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin:0 0 14px;color:var(--t4);font-size:12px">
+      <div style="flex:1;height:1px;background:var(--rim)"></div>
+      OR
+      <div style="flex:1;height:1px;background:var(--rim)"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">Type / build new SKU code</label>
+        <input class="form-input" id="sam-custom" placeholder="e.g. AUD-MIC-DYN" style="font-family:var(--mono);letter-spacing:1px"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">Description (for new SKU)</label>
+        <input class="form-input" id="sam-desc" placeholder="e.g. Dynamic microphone, wired"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeOv('sku-assign-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="assignSku()">Assign SKU</button>
+    </div>
+  </div>
+</div>
+
+<!-- SKU Builder Modal (create standalone SKU code) -->
+<div class="modal-overlay hidden" id="sku-builder-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">New SKU Code</div>
+      <button class="modal-close" onclick="closeOv('sku-builder-modal')">×</button>
+    </div>
+    <div style="font-size:13px;color:var(--t3);margin-bottom:18px">Create a reusable SKU code for your inventory schema. It will appear in the assign dropdown for all gear items.</div>
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">SKU Code</label>
+        <input class="form-input" id="sbm-code" placeholder="e.g. AUD-MIC-DYN" style="font-family:var(--mono);letter-spacing:1px" oninput="this.value=this.value.toUpperCase();document.getElementById('sbm-preview').textContent=this.value||'—'"/>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Category</label>
+        <select class="form-select" id="sbm-cat">
+          <option value="">— Select —</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">Description</label>
+        <input class="form-input" id="sbm-desc" placeholder="e.g. Dynamic microphone, wired"/>
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div class="form-label" style="margin-bottom:8px">SKU Preview</div>
+      <div class="sku-preview" id="sbm-preview">—</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeOv('sku-builder-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSku()">Save SKU</button>
+    </div>
+  </div>
+</div>
+
 <!-- Channel Modal -->
 <div class="modal-overlay hidden" id="ch-modal">
   <div class="modal">
@@ -732,7 +923,7 @@ table.ch-tbl{width:100%;border-collapse:collapse}
       <div class="form-field"><label class="form-label">Instrument</label><input class="form-input" id="cm-inst" placeholder="e.g. Vocal"/></div>
     </div>
     <div class="form-row">
-      <div class="form-field">
+      <div class="form-field" id="cm-iface-wrap">
         <label class="form-label">Interface / Microphone</label>
         <select class="form-select" id="cm-iface">
           <option value="">— Select from Gear Library —</option>
@@ -871,7 +1062,7 @@ async function boot(){
     const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error("Timed out — check internet")),10000));
     await Promise.race([getDocs(collection(db,"shows")),timeout]);
     setSplashTxt("connecting","Loading library…");
-    await Promise.all([loadGear(),loadVenues(),loadDirectors()]);
+    await Promise.all([loadGear(),loadVenues(),loadDirectors(),loadSkus()]);
     setSplashTxt("online","Database online — ready");
     document.getElementById("splash-enter").classList.remove("hidden");
     subscribeShows();
@@ -949,7 +1140,7 @@ window.goShows=function(){
   document.getElementById("btn-new-show").classList.remove("hidden");
   document.getElementById("tb-show-name").classList.add("hidden");
   document.getElementById("tb-show-name").textContent="";
-  ["channels","inventory","gear","venues","directors"].forEach(x=>
+  ["channels","inventory","gear","venues","directors","sku"].forEach(x=>
     document.getElementById("pg-"+x).classList.add("hidden"));
   document.getElementById("pg-shows").classList.remove("hidden");
   document.getElementById("sb-production").classList.add("hidden");
@@ -981,7 +1172,7 @@ window.sv=function(v){
   // Hide shows grid whenever navigating to any library/production view
   document.getElementById("pg-shows").classList.add("hidden");
   document.getElementById("btn-new-show").classList.add("hidden");
-  ["channels","inventory","gear","venues","directors"].forEach(x=>
+  ["channels","inventory","gear","venues","directors","sku"].forEach(x=>
     document.getElementById("pg-"+x).classList.toggle("hidden",x!==v));
   document.querySelectorAll(".sb-item").forEach(el=>el.classList.toggle("active",el.dataset.v===v));
   if(v==="channels")  renderChannels();
@@ -989,6 +1180,7 @@ window.sv=function(v){
   if(v==="gear")      renderGear();
   if(v==="venues")    renderVenues();
   if(v==="directors") renderDirectors();
+  if(v==="sku")       renderSku();
 };
 
 /* ─── SHOWS ──────────────────────────────────────────── */
@@ -1086,9 +1278,12 @@ window.saveShow=async function(){
 
 window.delShow=async function(id){
   if(!confirm("Delete this production and all its channels?")) return;
-  const chSnap=await getDocs(collection(db,"shows",id,"channels"));
-  for(const d of chSnap.docs) await deleteDoc(d.ref);
-  await fsDel("shows",id);
+  showSync("saving","Deleting…");
+  try{
+    const chSnap=await getDocs(collection(db,"shows",id,"channels"));
+    for(const d of chSnap.docs) await deleteDoc(d.ref);
+    await fsDel("shows",id);
+  }catch(e){ showSync("error","Delete failed"); console.error(e); }
 };
 
 /* ─── CHANNELS ───────────────────────────────────────── */
@@ -1110,6 +1305,7 @@ function calcInv(){
 }
 
 function renderChannels(){
+  if(!activeShow) return;
   const chs=channels[activeShow]||[];
   const s=shows.find(x=>x.id===activeShow);
   document.getElementById("ch-pg-title").textContent=s?s.name:"Channel List";
@@ -1167,6 +1363,7 @@ function renderChannels(){
 }
 
 function renderInvFull(){
+  if(!activeShow) return;
   const inv=calcInv();
   document.getElementById("inv-full").innerHTML=
     [["XLR Outputs",inv.xlr],["DI Boxes",inv.di],["Wired Mics",inv.wired],["Wireless Units",inv.wireless],["Headset Mics",inv.headset]]
@@ -1204,26 +1401,36 @@ function buildIfaceSelect(currentVal){
 
 window.openCHModal=function(idx){
   editCHIdx=(idx!==null&&idx!==undefined)?idx:null;
-  const ch=(editCHIdx!==null)?channels[activeShow][editCHIdx]:null;
+  const ch=(editCHIdx!==null&&channels[activeShow])?channels[activeShow][editCHIdx]||null:null;
   cms={st:ch?!!ch.st:false,ap:ch?!!ch.ap:false,da:ch?!!ch.da:false};
   document.getElementById("cm-title").textContent=ch?"Edit Channel":"Add Channel";
   document.getElementById("cm-name").value=ch?ch.name:"";
   document.getElementById("cm-inst").value=ch?ch.inst:"";
   document.getElementById("cm-amp").value=ch?ch.amp:"";
+  // If a previous open replaced select with input, restore the select first
+  const ifaceWrap=document.getElementById("cm-iface-wrap");
+  const existing=document.getElementById("cm-iface");
+  if(existing && existing.tagName==="INPUT"){
+    const sel=document.createElement("select");
+    sel.className="form-select"; sel.id="cm-iface";
+    ifaceWrap.replaceChild(sel,existing);
+  }
   buildIfaceSelect(ch?ch.iface:"");
   updateToggs();
-  // Handle manual type
   const ifaceEl=document.getElementById("cm-iface");
-  ifaceEl.onchange=function(){
-    if(this.value==="_manual"){
-      const inp=document.createElement("input");
-      inp.className="form-input"; inp.id="cm-iface"; inp.placeholder="e.g. SM58 (Dynamic)";
-      this.parentNode.replaceChild(inp,this);
-    }
-  };
+  if(ifaceEl.tagName==="SELECT"){
+    ifaceEl.onchange=function(){
+      if(this.value==="_manual"){
+        const inp=document.createElement("input");
+        inp.className="form-input"; inp.id="cm-iface"; inp.placeholder="e.g. SM58 (Dynamic)";
+        this.parentNode.replaceChild(inp,this);
+      }
+    };
+  }
   document.getElementById("ch-modal").classList.remove("hidden");
 };
 window.delChannel=async function(idx){
+  if(!activeShow||!channels[activeShow]) return;
   const ch=channels[activeShow][idx]; if(!ch)return;
   await fsDel("shows",activeShow,"channels",ch.id);
 };
@@ -1235,7 +1442,8 @@ function updateToggs(){
 window.saveCH=async function(){
   const name=document.getElementById("cm-name").value.trim(); if(!name)return;
   const ifEl=document.getElementById("cm-iface");
-  const iface=ifEl.value==="_manual"?"":ifEl.value;
+  const iface=(ifEl.value==="_manual"||ifEl.value==="")?"":ifEl.value;
+  if(!activeShow) return;
   const chs=channels[activeShow]||[];
   const id=(editCHIdx!==null&&chs[editCHIdx])?chs[editCHIdx].id:("c"+Date.now());
   const order=(editCHIdx!==null&&chs[editCHIdx])?(chs[editCHIdx].order??editCHIdx):chs.length;
@@ -1344,6 +1552,7 @@ window.saveGear=async function(){
   gear[cat].sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   closeOv("gear-modal");
   renderGear();
+  if(!document.getElementById("pg-sku").classList.contains("hidden")) renderSku();
 };
 
 window.dupeGear=function(cat,id){
@@ -1365,6 +1574,7 @@ window.delGear=async function(cat,id){
   await fsDel("gear",id);
   gear[cat]=(gear[cat]||[]).filter(x=>x.id!==id);
   renderGear();
+  if(!document.getElementById("pg-sku").classList.contains("hidden")) renderSku();
 };
 
 /* ─── VENUES ─────────────────────────────────────────── */
@@ -1488,6 +1698,192 @@ window.delDirector=async function(id){
   await fsDel("directors",id);
   directors=directors.filter(x=>x.id!==id);
   renderDirectors();
+};
+
+/* ─── SKU MANAGER ───────────────────────────────────────── */
+
+// SKU library: { code: { desc, category, usedBy: [itemId,...] } }
+// Stored in Firestore /skus/{code}
+let skuLib = {}; // { code: {desc, category} }
+
+async function loadSkus(){
+  const snap = await getDocs(collection(db,"skus"));
+  skuLib = {};
+  snap.docs.forEach(d=>{ skuLib[d.id] = d.data(); });
+}
+
+function getAllGearItems(){
+  // Flatten all gear items across all categories
+  const items = [];
+  Object.entries(gear).forEach(([cat,arr])=>{
+    arr.forEach(item=>items.push({...item, _cat:cat, _catLabel:GCATS[cat]?GCATS[cat].l:cat}));
+  });
+  return items;
+}
+
+function renderSku(){
+  if(!document.getElementById("sku-stats")) return;
+  const items = getAllGearItems();
+  const assigned   = items.filter(i=>i.sku&&i.sku.trim()!=="");
+  const unassigned = items.filter(i=>!i.sku||i.sku.trim()==="");
+  const filterEl = document.getElementById("sku-filter");
+  const filter = filterEl ? filterEl.value.toLowerCase() : "";
+
+  // Stats
+  document.getElementById("sku-stats").innerHTML=
+    skuStatCard(items.length,"Total Items",false)+
+    skuStatCard(assigned.length,"With SKU",false)+
+    skuStatCard(unassigned.length,"No SKU",unassigned.length>0)+
+    skuStatCard(Object.keys(skuLib).length,"SKU Codes",false);
+
+  // Unassigned list
+  const ul = document.getElementById("sku-unassigned-list");
+  document.getElementById("sku-unassigned-count").textContent = unassigned.length;
+  ul.innerHTML="";
+  if(!unassigned.length){
+    ul.innerHTML="<div style='padding:24px;text-align:center;color:var(--t4);font-size:13px'>All items have an SKU assigned</div>";
+  } else {
+    unassigned.forEach(item=>{
+      const row=document.createElement("div"); row.className="sku-row";
+      const btn=document.createElement("button"); btn.className="act-btn"; btn.textContent="Assign";
+      btn.addEventListener("click",()=>openSkuAssignModal(item.id,item._cat));
+      const info=document.createElement("div"); info.className="sku-row-info";
+      info.innerHTML="<div class='sku-row-name'>"+item.name+"</div><div class='sku-row-cat'>"+item._catLabel+"</div>";
+      const badge=document.createElement("span"); badge.className="sku-row-code unset"; badge.textContent="NO SKU";
+      const acts=document.createElement("div"); acts.className="sku-row-action";
+      acts.appendChild(btn);
+      row.appendChild(info); row.appendChild(badge); row.appendChild(acts);
+      ul.appendChild(row);
+    });
+  }
+
+  // Assigned list (with filter)
+  const al = document.getElementById("sku-assigned-list");
+  document.getElementById("sku-assigned-count").textContent = assigned.length;
+  al.innerHTML="";
+  const filtered = filter
+    ? assigned.filter(i=>(i.sku||"").toLowerCase().includes(filter)||(i.name||"").toLowerCase().includes(filter))
+    : assigned;
+  if(!filtered.length){
+    al.innerHTML="<div style='padding:24px;text-align:center;color:var(--t4);font-size:13px'>"+(filter?"No results":"No items with SKU yet")+"</div>";
+  } else {
+    filtered.forEach(item=>{
+      const row=document.createElement("div"); row.className="sku-row";
+      const btn=document.createElement("button"); btn.className="act-btn"; btn.textContent="Edit";
+      btn.addEventListener("click",()=>openSkuAssignModal(item.id,item._cat));
+      const info=document.createElement("div"); info.className="sku-row-info";
+      info.innerHTML="<div class='sku-row-name'>"+item.name+"</div><div class='sku-row-cat'>"+item._catLabel+"</div>";
+      const badge=document.createElement("span"); badge.className="sku-row-code"; badge.textContent=item.sku;
+      const acts=document.createElement("div"); acts.className="sku-row-action";
+      acts.appendChild(btn);
+      row.appendChild(info); row.appendChild(badge); row.appendChild(acts);
+      al.appendChild(row);
+    });
+  }
+}
+
+function skuStatCard(val,lbl,warn){
+  return '<div class="sku-stat-card">'+
+    '<div class="sku-stat-val'+(warn?" warn":"")+'">'+val+'</div>'+
+    '<div class="sku-stat-lbl">'+lbl+'</div>'+
+    '</div>';
+}
+
+/* ── SKU ASSIGN MODAL ── */
+let skuTargetId=null, skuTargetCat=null;
+
+window.openSkuAssignModal=function(id,cat){
+  skuTargetId=id; skuTargetCat=cat;
+  const item=(gear[cat]||[]).find(x=>x.id===id); if(!item)return;
+  document.getElementById("sam-title").textContent=item.sku?"Edit SKU":"Assign SKU";
+  document.getElementById("sam-item-name").textContent=item.name;
+  document.getElementById("sam-item-cat").textContent=GCATS[cat]?GCATS[cat].l:cat;
+  document.getElementById("sam-custom").value=item.sku||"";
+  document.getElementById("sam-desc").value="";
+
+  // Populate existing SKU select
+  const sel=document.getElementById("sam-existing");
+  sel.innerHTML="<option value=''>— Select existing SKU —</option>";
+  // Group by category prefix
+  const grouped={};
+  Object.entries(skuLib).forEach(([code,data])=>{
+    const cat=data.category||"Other";
+    if(!grouped[cat]) grouped[cat]=[];
+    grouped[cat].push({code,desc:data.desc||""});
+  });
+  Object.entries(grouped).sort().forEach(([grpCat,codes])=>{
+    const grp=document.createElement("optgroup"); grp.label=grpCat;
+    codes.sort((a,b)=>a.code.localeCompare(b.code)).forEach(({code,desc})=>{
+      const o=document.createElement("option");
+      o.value=code; o.textContent=code+(desc?" — "+desc:"");
+      if(item.sku===code) o.selected=true;
+      grp.appendChild(o);
+    });
+    sel.appendChild(grp);
+  });
+  if(item.sku) sel.value=item.sku;
+  document.getElementById("sku-assign-modal").classList.remove("hidden");
+};
+
+window.handleSkuSelectChange=function(sel){
+  if(sel.value){
+    document.getElementById("sam-custom").value=sel.value;
+    const entry=skuLib[sel.value];
+    if(entry&&entry.desc) document.getElementById("sam-desc").value=entry.desc;
+  }
+};
+
+window.assignSku=async function(){
+  const code=(document.getElementById("sam-custom").value||"").trim().toUpperCase();
+  if(!code){document.getElementById("sam-custom").focus();return;}
+  const item=(gear[skuTargetCat]||[]).find(x=>x.id===skuTargetId); if(!item)return;
+
+  // If it's a new code not in library, save it
+  if(!skuLib[code]){
+    const desc=document.getElementById("sam-desc").value.trim();
+    const catLabel=GCATS[skuTargetCat]?GCATS[skuTargetCat].l:skuTargetCat;
+    await fsWrite("skus",code,{desc,category:catLabel});
+    skuLib[code]={desc,category:catLabel};
+  }
+
+  // Update the gear item
+  const updated={...item,sku:code};
+  await fsWrite("gear",item.id,{sku:code});
+  const i=gear[skuTargetCat].findIndex(x=>x.id===item.id);
+  if(i>-1) gear[skuTargetCat][i]=updated;
+  closeOv("sku-assign-modal");
+  renderSku();
+};
+
+/* ── SKU BUILDER MODAL ── */
+window.openSkuBuilderModal=function(){
+  document.getElementById("sbm-code").value="";
+  document.getElementById("sbm-desc").value="";
+  document.getElementById("sbm-preview").textContent="—";
+  // Populate category select
+  const sel=document.getElementById("sbm-cat");
+  sel.innerHTML="<option value=''>— Select —</option>";
+  Object.entries(GCATS).forEach(([k,v])=>{
+    const o=document.createElement("option"); o.value=v.l; o.textContent=v.l;
+    sel.appendChild(o);
+  });
+  // Add event to update preview
+  // oninput is set inline in the HTML, nothing needed here
+  document.getElementById("sku-builder-modal").classList.remove("hidden");
+};
+
+window.saveSku=async function(){
+  const code=(document.getElementById("sbm-code").value||"").trim().toUpperCase();
+  if(!code){document.getElementById("sbm-code").focus();return;}
+  const desc=document.getElementById("sbm-desc").value.trim();
+  const cat=document.getElementById("sbm-cat").value;
+  if(skuLib[code]){
+    if(!confirm("SKU "+code+" already exists. Overwrite description?")) return;
+  }
+  await fsWrite("skus",code,{desc,category:cat});
+  skuLib[code]={desc,category:cat};
+  closeOv("sku-builder-modal");
+  renderSku();
 };
 
 /* ─── UTILS ──────────────────────────────────────────── */
