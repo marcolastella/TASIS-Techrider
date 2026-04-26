@@ -1522,15 +1522,22 @@ function renderInvFull(){
     [ch.inst, ch.iface, ch.ap?ch.amp:null].forEach(name=>{
       if(!name||!name.trim()) return;
       if(!countMap[name]){
-        // Find this item in gear library to get its category
         let cat="", catLabel="";
         for(const [k,items] of Object.entries(gear)){
           const found=items.find(i=>i.name===name);
-          if(found){ cat=k; catLabel=GCATS[k]?GCATS[k].l:k; break; }
+          if(found){
+            cat=k;
+            // Use stored category label if available (handles renamed categories)
+            catLabel=found.category&&found.category!==k
+              ? found.category                        // renamed label stored on item
+              : (GCATS[k]?GCATS[k].l:k);             // canonical GCATS label
+            break;
+          }
         }
         countMap[name]={cat, catLabel, count:0, name};
       }
-      countMap[name].count += ch.st&&name===ch.inst ? 2 : 1;
+      // Instruments are physical units — count as 1 even if stereo (2 outputs, 1 device)
+      countMap[name].count += 1;
     });
   });
 
