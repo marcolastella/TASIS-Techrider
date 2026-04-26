@@ -381,6 +381,32 @@ table.ch-tbl{width:100%;border-collapse:collapse}
 }
 .sku-row-code.unset{color:var(--amber);background:rgba(255,170,51,.07);border-color:rgba(255,170,51,.15)}
 .sku-row-action{flex-shrink:0}
+.sku-lib-section{
+  margin-top:24px;background:var(--s2);border:1px solid var(--rim);border-radius:14px;overflow:hidden;
+}
+.sku-lib-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--rim);background:var(--s3);gap:12px;flex-wrap:wrap;
+}
+.sku-lib-table-wrap{overflow-x:auto}
+.sku-lib-table{width:100%;border-collapse:collapse}
+.sku-lib-table thead tr{background:var(--s3)}
+.sku-lib-table th{
+  font-family:var(--mono);font-size:9px;color:var(--t4);letter-spacing:2px;
+  padding:8px 14px;text-align:left;text-transform:uppercase;font-weight:400;
+  border-bottom:1px solid var(--rim);
+}
+.sku-lib-table td{
+  padding:9px 14px;border-bottom:1px solid rgba(42,42,66,.4);
+  vertical-align:middle;font-size:13px;
+}
+.sku-lib-table tbody tr:last-child td{border-bottom:none}
+.sku-lib-table tbody tr:hover{background:var(--s3)}
+.sku-lib-code{font-family:var(--mono);font-weight:600;color:var(--cyan);letter-spacing:1px;font-size:12px}
+.sku-lib-desc{color:var(--t2)}
+.sku-lib-cat{font-size:11px}
+.sku-lib-used{font-family:var(--mono);font-size:11px;color:var(--t3)}
+.sku-lib-used b{color:var(--violet)}
 .sku-preview{
   font-family:var(--mono);font-size:20px;font-weight:700;color:var(--cyan);
   letter-spacing:2px;padding:12px 16px;background:var(--s3);
@@ -725,6 +751,39 @@ table.ch-tbl{width:100%;border-collapse:collapse}
                 </div>
               </div>
               <div id="sku-assigned-list" class="sku-item-list"></div>
+            </div>
+          </div>
+          </div>
+
+          <!-- SKU LIBRARY TABLE -->
+          <div class="sku-lib-section">
+            <div class="sku-lib-header">
+              <div class="sku-col-title">
+                <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                SKU Code Library
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <select class="sku-filter" id="sku-lib-cat-filter" style="width:160px" onchange="renderSku()">
+                  <option value="">All categories</option>
+                </select>
+                <input class="sku-filter" id="sku-lib-search" placeholder="Search code or desc…" oninput="renderSku()"/>
+              </div>
+            </div>
+            <div class="sku-lib-table-wrap">
+              <table class="sku-lib-table">
+                <thead><tr>
+                  <th>SKU CODE</th>
+                  <th>DESCRIPTION</th>
+                  <th>CATEGORY</th>
+                  <th>USED BY</th>
+                  <th class="no-print"></th>
+                </tr></thead>
+                <tbody id="sku-lib-body"></tbody>
+              </table>
+              <div id="sku-lib-empty" class="empty-state hidden">
+                <div class="empty-icon">—</div>
+                <div class="empty-text">No SKU codes yet — click + New SKU to create your first code</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1702,9 +1761,7 @@ window.delDirector=async function(id){
 
 /* ─── SKU MANAGER ───────────────────────────────────────── */
 
-// SKU library: { code: { desc, category, usedBy: [itemId,...] } }
-// Stored in Firestore /skus/{code}
-let skuLib = {}; // { code: {desc, category} }
+let skuLib = {};
 
 async function loadSkus(){
   const snap = await getDocs(collection(db,"skus"));
@@ -1713,7 +1770,6 @@ async function loadSkus(){
 }
 
 function getAllGearItems(){
-  // Flatten all gear items across all categories
   const items = [];
   Object.entries(gear).forEach(([cat,arr])=>{
     arr.forEach(item=>items.push({...item, _cat:cat, _catLabel:GCATS[cat]?GCATS[cat].l:cat}));
@@ -1780,38 +1836,92 @@ function renderSku(){
       al.appendChild(row);
     });
   }
+
+  // SKU library table
+  renderSkuLibTable(items);
+}
+
+function renderSkuLibTable(allItems){
+  // Populate category filter
+  const catFilter = document.getElementById("sku-lib-cat-filter");
+  const currentCat = catFilter ? catFilter.value : "";
+  if(catFilter){
+    const cats = [...new Set(Object.values(skuLib).map(v=>v.category||"").filter(Boolean))].sort();
+    catFilter.innerHTML="<option value=''>All categories</option>";
+    cats.forEach(c=>{
+      const o=document.createElement("option"); o.value=c; o.textContent=c;
+      if(c===currentCat) o.selected=true;
+      catFilter.appendChild(o);
+    });
+  }
+
+  const searchEl = document.getElementById("sku-lib-search");
+  const search = searchEl ? searchEl.value.toLowerCase() : "";
+  const tbody = document.getElementById("sku-lib-body");
+  const empty = document.getElementById("sku-lib-empty");
+  if(!tbody) return;
+  tbody.innerHTML="";
+
+  const entries = Object.entries(skuLib)
+    .filter(([code,data])=>{
+      if(currentCat && (data.category||"")!==currentCat) return false;
+      if(search && !code.toLowerCase().includes(search) && !(data.desc||"").toLowerCase().includes(search)) return false;
+      return true;
+    })
+    .sort((a,b)=>a[0].localeCompare(b[0]));
+
+  empty.classList.toggle("hidden", entries.length>0);
+
+  entries.forEach(([code, data])=>{
+    // Count how many gear items use this SKU
+    const usedBy = allItems.filter(i=>i.sku===code);
+    const tr = document.createElement("tr");
+    const editBtn = document.createElement("button");
+    editBtn.className="act-btn"; editBtn.textContent="Edit";
+    editBtn.addEventListener("click",()=>openSkuEditModal(code));
+    const delBtn = document.createElement("button");
+    delBtn.className="act-btn del"; delBtn.textContent="×";
+    delBtn.addEventListener("click",()=>deleteSkuCode(code));
+    const actTd = document.createElement("td");
+    actTd.className="no-print";
+    actTd.style.cssText="display:flex;gap:4px";
+    actTd.appendChild(editBtn); actTd.appendChild(delBtn);
+    tr.innerHTML=
+      "<td><span class='sku-lib-code'>"+code+"</span></td>"+
+      "<td class='sku-lib-desc'>"+(data.desc||"—")+"</td>"+
+      "<td><span class='pill pill-muted sku-lib-cat'>"+(data.category||"—")+"</span></td>"+
+      "<td class='sku-lib-used'>"+(usedBy.length?"<b>"+usedBy.length+"</b> item"+(usedBy.length!==1?"s":""):"<span style='color:var(--t4)'>unused</span>")+"</td>";
+    tr.appendChild(actTd);
+    tbody.appendChild(tr);
+  });
 }
 
 function skuStatCard(val,lbl,warn){
-  return '<div class="sku-stat-card">'+
-    '<div class="sku-stat-val'+(warn?" warn":"")+'">'+val+'</div>'+
-    '<div class="sku-stat-lbl">'+lbl+'</div>'+
-    '</div>';
+  return "<div class='sku-stat-card'><div class='sku-stat-val"+(warn?" warn":"")+"'>"+val+"</div><div class='sku-stat-lbl'>"+lbl+"</div></div>";
 }
 
 /* ── SKU ASSIGN MODAL ── */
 let skuTargetId=null, skuTargetCat=null;
 
-window.openSkuAssignModal=function(id,cat){
-  skuTargetId=id; skuTargetCat=cat;
-  const item=(gear[cat]||[]).find(x=>x.id===id); if(!item)return;
+window.openSkuAssignModal=function(itemId, itemCat){
+  skuTargetId=itemId; skuTargetCat=itemCat;
+  const item=(gear[itemCat]||[]).find(x=>x.id===itemId); if(!item)return;
   document.getElementById("sam-title").textContent=item.sku?"Edit SKU":"Assign SKU";
   document.getElementById("sam-item-name").textContent=item.name;
-  document.getElementById("sam-item-cat").textContent=GCATS[cat]?GCATS[cat].l:cat;
+  document.getElementById("sam-item-cat").textContent=GCATS[itemCat]?GCATS[itemCat].l:itemCat;
   document.getElementById("sam-custom").value=item.sku||"";
   document.getElementById("sam-desc").value="";
 
-  // Populate existing SKU select
+  // Populate existing SKU select — grouped by category
   const sel=document.getElementById("sam-existing");
   sel.innerHTML="<option value=''>— Select existing SKU —</option>";
-  // Group by category prefix
   const grouped={};
   Object.entries(skuLib).forEach(([code,data])=>{
-    const cat=data.category||"Other";
-    if(!grouped[cat]) grouped[cat]=[];
-    grouped[cat].push({code,desc:data.desc||""});
+    const grpKey=data.category||"Other";
+    if(!grouped[grpKey]) grouped[grpKey]=[];
+    grouped[grpKey].push({code, desc:data.desc||""});
   });
-  Object.entries(grouped).sort().forEach(([grpCat,codes])=>{
+  Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([grpCat,codes])=>{
     const grp=document.createElement("optgroup"); grp.label=grpCat;
     codes.sort((a,b)=>a.code.localeCompare(b.code)).forEach(({code,desc})=>{
       const o=document.createElement("option");
@@ -1837,38 +1947,51 @@ window.assignSku=async function(){
   const code=(document.getElementById("sam-custom").value||"").trim().toUpperCase();
   if(!code){document.getElementById("sam-custom").focus();return;}
   const item=(gear[skuTargetCat]||[]).find(x=>x.id===skuTargetId); if(!item)return;
-
-  // If it's a new code not in library, save it
+  // Register in library if new
   if(!skuLib[code]){
     const desc=document.getElementById("sam-desc").value.trim();
     const catLabel=GCATS[skuTargetCat]?GCATS[skuTargetCat].l:skuTargetCat;
     await fsWrite("skus",code,{desc,category:catLabel});
     skuLib[code]={desc,category:catLabel};
   }
-
-  // Update the gear item
-  const updated={...item,sku:code};
+  // Update gear item
   await fsWrite("gear",item.id,{sku:code});
   const i=gear[skuTargetCat].findIndex(x=>x.id===item.id);
-  if(i>-1) gear[skuTargetCat][i]=updated;
+  if(i>-1) gear[skuTargetCat][i]={...item,sku:code};
   closeOv("sku-assign-modal");
   renderSku();
 };
 
-/* ── SKU BUILDER MODAL ── */
+/* ── SKU EDIT MODAL (edit a code in the library) ── */
+let editingSkuCode=null;
+window.openSkuEditModal=function(code){
+  editingSkuCode=code;
+  const data=skuLib[code]||{};
+  document.getElementById("sbm-code").value=code;
+  document.getElementById("sbm-desc").value=data.desc||"";
+  document.getElementById("sbm-preview").textContent=code;
+  const sel=document.getElementById("sbm-cat");
+  sel.innerHTML="<option value=''>— Select —</option>";
+  Object.entries(GCATS).forEach(([k,v])=>{
+    const o=document.createElement("option"); o.value=v.l; o.textContent=v.l;
+    if(v.l===(data.category||"")) o.selected=true;
+    sel.appendChild(o);
+  });
+  document.getElementById("sku-builder-modal").classList.remove("hidden");
+};
+
+/* ── SKU BUILDER MODAL (new code) ── */
 window.openSkuBuilderModal=function(){
+  editingSkuCode=null;
   document.getElementById("sbm-code").value="";
   document.getElementById("sbm-desc").value="";
   document.getElementById("sbm-preview").textContent="—";
-  // Populate category select
   const sel=document.getElementById("sbm-cat");
   sel.innerHTML="<option value=''>— Select —</option>";
   Object.entries(GCATS).forEach(([k,v])=>{
     const o=document.createElement("option"); o.value=v.l; o.textContent=v.l;
     sel.appendChild(o);
   });
-  // Add event to update preview
-  // oninput is set inline in the HTML, nothing needed here
   document.getElementById("sku-builder-modal").classList.remove("hidden");
 };
 
@@ -1877,12 +2000,29 @@ window.saveSku=async function(){
   if(!code){document.getElementById("sbm-code").focus();return;}
   const desc=document.getElementById("sbm-desc").value.trim();
   const cat=document.getElementById("sbm-cat").value;
-  if(skuLib[code]){
-    if(!confirm("SKU "+code+" already exists. Overwrite description?")) return;
+  if(skuLib[code]&&!editingSkuCode){
+    if(!confirm("SKU "+code+" already exists. Overwrite?")) return;
   }
   await fsWrite("skus",code,{desc,category:cat});
   skuLib[code]={desc,category:cat};
+  // If we renamed a code (editingSkuCode differs), delete the old one
+  if(editingSkuCode && editingSkuCode!==code){
+    await fsDel("skus",editingSkuCode);
+    delete skuLib[editingSkuCode];
+  }
   closeOv("sku-builder-modal");
+  renderSku();
+};
+
+window.deleteSkuCode=async function(code){
+  const usedBy=getAllGearItems().filter(i=>i.sku===code);
+  if(usedBy.length){
+    if(!confirm("SKU "+code+" is used by "+usedBy.length+" gear item(s). Delete anyway?")) return;
+  } else {
+    if(!confirm("Delete SKU "+code+"?")) return;
+  }
+  await fsDel("skus",code);
+  delete skuLib[code];
   renderSku();
 };
 
