@@ -1518,8 +1518,9 @@ window.openCHModal=function(idx){
   document.getElementById("cm-name").value=ch?ch.name:"";
 
   // Instrument — all gear categories
+  // Instrument: entire gear library — all categories including custom ones
   buildGearSelect("cm-inst",
-    ["microphones","wireless","di_boxes","amplifiers","monitors","consoles","cables","accessories","power"],
+    Object.keys(gear).filter(k=>gear[k]&&gear[k].length>0),
     ch?ch.inst:"");
 
   // Microphone / DI — only microphones, wireless, di_boxes
