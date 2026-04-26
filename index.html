@@ -407,6 +407,8 @@ table.ch-tbl{width:100%;border-collapse:collapse}
 .sku-lib-used{font-family:var(--mono);font-size:11px;color:var(--t3)}
 .sku-lib-used b{color:var(--violet)}
 .status-pill{font-family:var(--mono);font-size:10px;font-weight:600;padding:3px 10px;border-radius:100px;letter-spacing:.5px;white-space:nowrap}
+.status-clickable{cursor:pointer;transition:opacity .15s;user-select:none}
+.status-clickable:hover{opacity:.75}
 .status-ready{background:rgba(0,229,160,.1);color:var(--green);border:1px solid rgba(0,229,160,.25)}
 .status-maintenance{background:rgba(255,170,51,.1);color:var(--amber);border:1px solid rgba(255,170,51,.25)}
 .status-broken{background:rgba(255,68,102,.1);color:var(--red);border:1px solid rgba(255,68,102,.25)}
@@ -447,8 +449,14 @@ table.ch-tbl{width:100%;border-collapse:collapse}
   padding:2px 7px;border-radius:4px;
 }
 .gear-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
-.gear-item{background:var(--s2);border:1px solid var(--rim);border-radius:12px;padding:13px 15px;display:flex;justify-content:space-between;gap:8px;transition:all .15s}
+.gear-item{background:var(--s2);border:1px solid var(--rim);border-radius:12px;padding:13px 15px;display:flex;justify-content:space-between;gap:8px;transition:all .15s;position:relative}
 .gear-item:hover{border-color:var(--rim2);background:var(--s3)}
+.gear-item.status-maintenance{border-left:2px solid var(--amber)}
+.gear-item.status-broken{border-left:2px solid var(--red);opacity:.7}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.status-dot.ready{background:var(--green);box-shadow:0 0 6px rgba(0,229,160,.5)}
+.status-dot.maintenance{background:var(--amber);box-shadow:0 0 6px rgba(255,170,51,.5)}
+.status-dot.broken{background:var(--red);box-shadow:0 0 6px rgba(255,68,102,.5)}
 .gi-name{font-size:14px;font-weight:500;color:var(--t1)}
 .gi-sub{font-size:12px;color:var(--t3);margin-top:2px}
 .gi-sku{font-family:var(--mono);font-size:10px;color:var(--violet);margin-top:4px}
@@ -1502,6 +1510,8 @@ function buildGearSelect(selId, categories, currentVal){
     const seen=new Set();
     items.forEach(item=>{
       if(seen.has(item.id)) return; seen.add(item.id);
+      // Exclude broken/maintenance items from channel assignment
+      if(item.status==="broken"||item.status==="maintenance") return;
       const opt=document.createElement("option");
       opt.value=item.name; opt.textContent=item.name+(item.notes?" — "+item.notes:"");
       if(item.name===currentVal) opt.selected=true;
@@ -1601,6 +1611,8 @@ function renderGear(){
           (item.notes?"<div class=\"gi-sub\">"+item.notes+"</div>":"")+
           (item.sku?"<div class=\"gi-sku\">"+item.sku+"</div>":"")+
         "</div>"+
+          "</div>"+  // close inner wrapper
+        "</div>"+  // close flex row
         "<div class=\"gi-actions\">"+
           "<button class=\"act-btn\" onclick=\"openGearModal('"+sc+"','"+si+"')\">Edit</button>"+
           "<button class=\"act-btn\" onclick=\"dupeGear('"+sc+"','"+si+"')\" title=\"Duplicate\">⧉</button>"+
@@ -1932,6 +1944,38 @@ function statusPillHtml(status){
   return "<span class='status-pill "+cls+"'>"+label+"</span>";
 }
 
+function clickableStatusPill(code,status){
+  const map={ready:["Ready","status-ready"],maintenance:["Maintenance","status-maintenance"],broken:["Broken","status-broken"]};
+  const [label,cls]=map[status||"ready"]||["Ready","status-ready"];
+  return "<span class='status-pill "+cls+" status-clickable' title='Click to change status' data-sku-cycle='"+code+"'>"+label+"</span>";
+}
+
+window.cycleSkuStatus=async function(code){
+  const cycle={ready:"maintenance",maintenance:"broken",broken:"ready"};
+  const allItems=getAllGearItems();
+  const usedBy=allItems.filter(i=>i.sku===code);
+  if(!usedBy.length) return;
+  // Get current aggregated status
+  const curr=usedBy.some(i=>i.status==="broken")?"broken":
+              usedBy.some(i=>i.status==="maintenance")?"maintenance":"ready";
+  const next=cycle[curr];
+  showSync("saving","Updating status…");
+  try{
+    // Update all gear items using this SKU
+    for(const item of usedBy){
+      const cat=item._cat;
+      await setDoc(doc(db,"gear",item.id),{status:next},{merge:true});
+      // Update local state
+      const idx=gear[cat]?gear[cat].findIndex(x=>x.id===item.id):-1;
+      if(idx>-1) gear[cat][idx]={...gear[cat][idx],status:next};
+    }
+    showSync("saved","Status updated ✓");
+    renderSku();
+    // If gear page is also visible, refresh it
+    if(!document.getElementById("pg-gear").classList.contains("hidden")) renderGear();
+  }catch(e){ showSync("error","Update failed"); console.error(e); }
+};
+
 function renderSkuLibTable(allItems){
   const catFilter = document.getElementById("sku-lib-cat-filter");
   const statusFilter = document.getElementById("sku-lib-status-filter");
@@ -1976,10 +2020,12 @@ function renderSkuLibTable(allItems){
     entries.sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,data])=>{
       const usedBy=allItems.filter(i=>i.sku===code);
 
-      // Status filter
+      // Status filter — filter by aggregated status of gear items using this SKU
       if(currentStatus){
-        const anyMatch=usedBy.some(i=>(i.status||"ready")===currentStatus);
-        if(!anyMatch||usedBy.length===0) return;
+        if(usedBy.length===0) return; // hide unused SKUs when filtering by status
+        const worstStatus=usedBy.some(i=>i.status==="broken")?"broken":
+                          usedBy.some(i=>i.status==="maintenance")?"maintenance":"ready";
+        if(worstStatus!==currentStatus) return;
       }
 
       // Aggregate status
@@ -2004,13 +2050,19 @@ function renderSkuLibTable(allItems){
       tr.innerHTML=
         "<td><span class='sku-lib-code'>"+code+"</span></td>"+
         "<td class='sku-lib-desc'>"+(data.desc||"—")+"</td>"+
-        "<td>"+(aggStatus?statusPillHtml(aggStatus):"<span style='color:var(--t4);font-size:11px'>—</span>")+"</td>"+
+        "<td id='sku-st-"+code+"'>"+(aggStatus?clickableStatusPill(code,aggStatus):"<span style='color:var(--t4);font-size:11px'>—</span>")+"</td>"+
         "<td style='max-width:260px'>"+namesHtml+"</td>";
       tr.appendChild(actTd);
       tbody.appendChild(tr);
     });
   });
 }
+
+// Event delegation for clickable status pills in SKU library table
+document.addEventListener("click",function(e){
+  const el=e.target.closest("[data-sku-cycle]");
+  if(el) window.cycleSkuStatus(el.getAttribute("data-sku-cycle"));
+});
 
 function skuStatCard(val,lbl,warn){
   return "<div class='sku-stat-card'><div class='sku-stat-val"+(warn?" warn":"")+"'>"+val+"</div><div class='sku-stat-lbl'>"+lbl+"</div></div>";
