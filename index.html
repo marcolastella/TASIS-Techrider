@@ -753,7 +753,6 @@ table.ch-tbl{width:100%;border-collapse:collapse}
               <div id="sku-assigned-list" class="sku-item-list"></div>
             </div>
           </div>
-          </div>
 
           <!-- SKU LIBRARY TABLE -->
           <div class="sku-lib-section">
@@ -1180,6 +1179,15 @@ async function loadGear(){
     gear[cat].push({id:d.id,...data});
   });
   Object.keys(gear).forEach(k=>gear[k].sort((a,b)=>(a.name||"").localeCompare(b.name||"")));
+  // Back-fill skuLib from existing gear sku fields so assigned items always show in library
+  Object.entries(gear).forEach(([cat,items])=>{
+    items.forEach(item=>{
+      if(item.sku && item.sku.trim() && !skuLib[item.sku]){
+        const catLabel=GCATS[cat]?GCATS[cat].l:cat;
+        skuLib[item.sku]={desc:"",category:catLabel};
+      }
+    });
+  });
 }
 async function loadVenues(){
   const snap=await getDocs(collection(db,"venues"));
