@@ -660,7 +660,6 @@ table.ch-tbl{width:100%;border-collapse:collapse}
               <button class="btn btn-ghost btn-sm" onclick="window.print()">Print</button>
             </div>
           </div>
-          <div id="inv-bar" style="margin-bottom:22px"></div>
           <div id="ch-empty" class="empty-state hidden">
             <div class="empty-icon">—</div>
             <div class="empty-text">No channels yet — click Add Channel to start patching</div>
@@ -682,11 +681,13 @@ table.ch-tbl{width:100%;border-collapse:collapse}
           <div class="page-header">
             <div>
               <div class="page-title">Inventory</div>
-              <div class="page-sub">Auto-calculated from channel list</div>
+              <div class="page-sub">Equipment needed for this show based on the channel list</div>
             </div>
           </div>
-          <div class="inv-strip" id="inv-full"></div>
-          <div id="inv-amps"></div>
+          <!-- SKU category counters -->
+          <div class="inv-strip" id="inv-full" style="margin-bottom:20px"></div>
+          <!-- Full gear list by category -->
+          <div id="inv-gear-list"></div>
         </div>
 
         <!-- GEAR -->
@@ -1459,12 +1460,7 @@ function renderChannels(){
   document.getElementById("ch-empty").classList.toggle("hidden",chs.length>0);
   document.getElementById("ch-table-wrap").style.display=chs.length?"":"none";
 
-  const inv=calcInv();
-  document.getElementById("inv-bar").innerHTML=
-    "<div class=\"inv-strip\">"+
-    [["XLR Out",inv.xlr],["DI Boxes",inv.di],["Wired Mics",inv.wired],["Wireless",inv.wireless],["Headsets",inv.headset]]
-    .map(x=>"<div class=\"inv-card\"><div class=\"inv-num"+(x[1]===0?" zero":"")+"\">"+x[1]+"</div><div class=\"inv-lbl\">"+x[0]+"</div></div>").join("")+
-    "</div>";
+
 
   const tbody=document.getElementById("ch-body"); tbody.innerHTML="";
   let n=1;
@@ -1510,16 +1506,102 @@ function renderChannels(){
 
 function renderInvFull(){
   if(!activeShow) return;
-  const inv=calcInv();
-  document.getElementById("inv-full").innerHTML=
-    [["XLR Outputs",inv.xlr],["DI Boxes",inv.di],["Wired Mics",inv.wired],["Wireless Units",inv.wireless],["Headset Mics",inv.headset]]
-    .map(x=>"<div class=\"inv-card\"><div class=\"inv-num"+(x[1]===0?" zero":"")+"\">"+x[1]+"</div><div class=\"inv-lbl\">"+x[0]+"</div></div>").join("");
-  const al=Object.entries(inv.amps);
-  document.getElementById("inv-amps").innerHTML=al.length?
-    "<div style=\"margin-top:6px\">"+
-    "<div style=\"font-family:var(--mono);font-size:9px;color:var(--t4);letter-spacing:2px;margin-bottom:10px;text-transform:uppercase\">Amplifiers</div>"+
-    al.map(x=>"<div style=\"padding:12px 16px;background:var(--s2);border:1px solid var(--rim);border-radius:12px;font-size:14px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center\"><span style=\"font-weight:500\">"+x[0]+"</span><span class=\"pill pill-red\">×"+x[1]+"</span></div>").join("")+
-    "</div>":"";
+  const chs=channels[activeShow]||[];
+
+  // Collect all gear items referenced in the channel list
+  // inst = instrument, iface = mic/DI, amp = amplifier
+  const usedItems=[]; // {name, cat, catLabel, count}
+  const countMap={}; // name → {cat, catLabel, count}
+
+  chs.forEach(ch=>{
+    [ch.inst, ch.iface, ch.ap?ch.amp:null].forEach(name=>{
+      if(!name||!name.trim()) return;
+      if(!countMap[name]){
+        // Find this item in gear library to get its category
+        let cat="", catLabel="";
+        for(const [k,items] of Object.entries(gear)){
+          const found=items.find(i=>i.name===name);
+          if(found){ cat=k; catLabel=GCATS[k]?GCATS[k].l:k; break; }
+        }
+        countMap[name]={cat, catLabel, count:0, name};
+      }
+      countMap[name].count += ch.st&&name===ch.inst ? 2 : 1;
+    });
+  });
+
+  const allUsed=Object.values(countMap).sort((a,b)=>a.catLabel.localeCompare(b.catLabel)||a.name.localeCompare(b.name));
+
+  // ── SKU-CATEGORY COUNTERS ──
+  // Group by SKU category (from skuLib) or gear category
+  const catCounts={};
+  allUsed.forEach(item=>{
+    // Find SKU category for this item
+    let skuCat="";
+    for(const [k,items] of Object.entries(gear)){
+      const found=items.find(i=>i.name===item.name);
+      if(found&&found.sku&&skuLib[found.sku]) skuCat=skuLib[found.sku].category||"";
+    }
+    const displayCat=skuCat||item.catLabel||"Other";
+    if(!catCounts[displayCat]) catCounts[displayCat]=0;
+    catCounts[displayCat]+=item.count;
+  });
+
+  const statsEl=document.getElementById("inv-full");
+  if(statsEl){
+    if(!Object.keys(catCounts).length){
+      statsEl.innerHTML="<div style='color:var(--t4);font-size:13px'>No channels yet — add channels to see inventory</div>";
+    } else {
+      statsEl.innerHTML=Object.entries(catCounts).sort((a,b)=>a[0].localeCompare(b[0]))
+        .map(([cat,n])=>"<div class='inv-card'><div class='inv-num'>"+n+"</div><div class='inv-lbl'>"+cat+"</div></div>")
+        .join("");
+    }
+  }
+
+  // ── FULL GEAR LIST ──
+  const listEl=document.getElementById("inv-gear-list");
+  if(!listEl) return;
+  listEl.innerHTML="";
+
+  if(!allUsed.length){
+    listEl.innerHTML="<div class='empty-state'><div class='empty-icon'>—</div><div class='empty-text'>No gear assigned yet</div></div>";
+    return;
+  }
+
+  // Group by category
+  const grouped={};
+  allUsed.forEach(item=>{
+    const g=item.catLabel||"Other";
+    if(!grouped[g]) grouped[g]=[];
+    grouped[g].push(item);
+  });
+
+  Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([cat,items])=>{
+    const sec=document.createElement("div"); sec.style.cssText="margin-bottom:18px";
+    sec.innerHTML="<div style='font-family:var(--mono);font-size:10px;color:var(--t4);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;padding:0 2px'>"+cat+"</div>";
+    items.forEach(item=>{
+      // Find full gear info
+      let gearItem=null;
+      for(const arr of Object.values(gear)){
+        gearItem=arr.find(i=>i.name===item.name);
+        if(gearItem) break;
+      }
+      const st=gearItem?gearItem.status||"ready":"ready";
+      const sku=gearItem?gearItem.sku||"":"";
+      const desc=gearItem?gearItem.notes||"":"";
+      const row=document.createElement("div");
+      row.style.cssText="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--s2);border:1px solid var(--rim);border-radius:10px;margin-bottom:6px";
+      row.innerHTML=
+        "<div class='status-dot "+st+"' title='"+st+"' style='flex-shrink:0'></div>"+
+        "<div style='flex:1;min-width:0'>"+
+          "<div style='font-size:14px;font-weight:600;color:var(--t1)'>"+item.name+"</div>"+
+          (desc?"<div style='font-size:12px;color:var(--t3);margin-top:1px'>"+desc+"</div>":"")+
+          (sku?"<div style='font-family:var(--mono);font-size:11px;color:var(--cyan);margin-top:3px'>"+sku+"</div>":"")+
+        "</div>"+
+        "<span style='font-family:var(--mono);font-size:13px;font-weight:700;color:var(--t2);background:var(--s4);border:1px solid var(--rim);padding:3px 10px;border-radius:6px'>×"+item.count+"</span>";
+      sec.appendChild(row);
+    });
+    listEl.appendChild(sec);
+  });
 }
 
 /* ── Channel modal gear dropdowns ── */
@@ -1703,7 +1785,10 @@ window.openGearModal=function(cat,id){
   const item=(id&&cat&&gear[cat])?gear[cat].find(x=>x.id===id)||null:null;
   document.getElementById("gm-title").textContent=item?"Edit Gear Item":"Add Gear Item";
   document.getElementById("gm-name").value=item?item.name:"";
-  document.getElementById("gm-notes").value=item?item.notes||"":"";
+  // Sync notes with SKU description — show SKU desc if notes empty
+  const itemSku=item?item.sku||"":"";
+  const skuDesc=itemSku&&skuLib[itemSku]?skuLib[itemSku].desc||"":"";
+  document.getElementById("gm-notes").value=item?(item.notes||skuDesc):"";
   document.getElementById("gm-status").value=item?item.status||"ready":"ready";
   // Populate SKU select from library
   const skuSel=document.getElementById("gm-sku");
@@ -1756,12 +1841,17 @@ window.saveGear=async function(){
     ?(skuCustomEl.value||"").trim().toUpperCase()
     :skuSel.value;
   // Register new SKU in library if custom
+  const gearNotes=document.getElementById("gm-notes").value;
   if(skuSel.value==="__new__" && skuVal && !skuLib[skuVal]){
     const catLabel=GCATS[cat]?GCATS[cat].l:cat;
-    fsWrite("skus",skuVal,{desc:"",category:catLabel}).catch(()=>{});
-    skuLib[skuVal]={desc:"",category:catLabel};
+    fsWrite("skus",skuVal,{desc:gearNotes,category:catLabel}).catch(()=>{});
+    skuLib[skuVal]={desc:gearNotes,category:catLabel};
+  } else if(skuVal && skuLib[skuVal] && !skuLib[skuVal].desc && gearNotes){
+    // Backfill SKU desc from gear notes
+    fsWrite("skus",skuVal,{desc:gearNotes}).catch(()=>{});
+    skuLib[skuVal]={...skuLib[skuVal],desc:gearNotes};
   }
-  const item={name,category:cat,notes:document.getElementById("gm-notes").value,sku:skuVal,status:document.getElementById("gm-status").value||"ready"};
+  const item={name,category:cat,notes:gearNotes,sku:skuVal,status:document.getElementById("gm-status").value||"ready"};
   await fsWrite("gear",id,item);
   if(!gear[cat]) gear[cat]=[];
   const i=gear[cat].findIndex(x=>x.id===id);
