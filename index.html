@@ -1128,6 +1128,11 @@ const fbApp = initializeApp(FB);
 const db = getFirestore(fbApp);
 
 /* ─── GEAR CATEGORIES ─────────────────────────────── */
+// Natural sort: "Ch 2" < "Ch 10" < "Ch 11" instead of "Ch 10" < "Ch 11" < "Ch 2"
+function ns(a, b){
+  return (a||"").localeCompare(b||"", undefined, {numeric:true, sensitivity:"base"});
+}
+
 const GCATS = {
   microphones:{l:"Microphones",i:"mic"},
   di_boxes:{l:"DI Boxes",i:"di"},
@@ -1219,7 +1224,7 @@ function subscribeShows(){
   if(unsubShows) unsubShows();
   unsubShows=onSnapshot(collection(db,"shows"),snap=>{
     shows=snap.docs.map(d=>({id:d.id,...d.data()}));
-    shows.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+    shows.sort((a,b)=>ns(a.name,b.name));
     if(!document.getElementById("pg-shows").classList.contains("hidden")) renderShows();
   },err=>console.error(err));
 }
@@ -1258,7 +1263,7 @@ async function loadGear(){
       setDoc(doc(db,"gear",d.id),{category:cat},{merge:true}).catch(()=>{});
     }
   });
-  Object.keys(gear).forEach(k=>gear[k].sort((a,b)=>(a.name||"").localeCompare(b.name||"")));
+  Object.keys(gear).forEach(k=>gear[k].sort((a,b)=>ns(a.name,b.name)));
   // Back-fill skuLib from existing gear sku fields
   Object.entries(gear).forEach(([cat,items])=>{
     items.forEach(item=>{
@@ -1272,12 +1277,12 @@ async function loadGear(){
 async function loadVenues(){
   const snap=await getDocs(collection(db,"venues"));
   venues=snap.docs.map(d=>({id:d.id,...d.data()}));
-  venues.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  venues.sort((a,b)=>ns(a.name,b.name));
 }
 async function loadDirectors(){
   const snap=await getDocs(collection(db,"directors"));
   directors=snap.docs.map(d=>({id:d.id,...d.data()}));
-  directors.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  directors.sort((a,b)=>ns(a.name,b.name));
 }
 
 /* ─── NAVIGATION ─────────────────────────────────────── */
@@ -1529,7 +1534,7 @@ function renderInvFull(){
     });
   });
 
-  const allUsed=Object.values(countMap).sort((a,b)=>a.catLabel.localeCompare(b.catLabel)||a.name.localeCompare(b.name));
+  const allUsed=Object.values(countMap).sort((a,b)=>ns(a.catLabel,b.catLabel)||ns(a.name,b.name));
 
   // ── SKU-CATEGORY COUNTERS ──
   // Group by SKU category (from skuLib) or gear category
@@ -1551,7 +1556,7 @@ function renderInvFull(){
     if(!Object.keys(catCounts).length){
       statsEl.innerHTML="<div style='color:var(--t4);font-size:13px'>No channels yet — add channels to see inventory</div>";
     } else {
-      statsEl.innerHTML=Object.entries(catCounts).sort((a,b)=>a[0].localeCompare(b[0]))
+      statsEl.innerHTML=Object.entries(catCounts).sort((a,b)=>ns(a[0],b[0]))
         .map(([cat,n])=>"<div class='inv-card'><div class='inv-num'>"+n+"</div><div class='inv-lbl'>"+cat+"</div></div>")
         .join("");
     }
@@ -1575,7 +1580,7 @@ function renderInvFull(){
     grouped[g].push(item);
   });
 
-  Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([cat,items])=>{
+  Object.entries(grouped).sort((a,b)=>ns(a[0],b[0])).forEach(([cat,items])=>{
     const sec=document.createElement("div"); sec.style.cssText="margin-bottom:18px";
     sec.innerHTML="<div style='font-family:var(--mono);font-size:10px;color:var(--t4);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;padding:0 2px'>"+cat+"</div>";
     items.forEach(item=>{
@@ -1801,7 +1806,7 @@ window.openGearModal=function(cat,id){
   });
   Object.entries(cats).sort().forEach(([c,codes])=>{
     const grp=document.createElement("optgroup"); grp.label=c;
-    codes.sort((a,b)=>a.code.localeCompare(b.code)).forEach(({code,desc})=>{
+    codes.sort((a,b)=>ns(a.code,b.code)).forEach(({code,desc})=>{
       const o=document.createElement("option"); o.value=code;
       o.textContent=code+(desc?" — "+desc:"");
       if(item&&item.sku===code) o.selected=true;
@@ -1856,7 +1861,7 @@ window.saveGear=async function(){
   if(!gear[cat]) gear[cat]=[];
   const i=gear[cat].findIndex(x=>x.id===id);
   if(i>-1) gear[cat][i]={id,...item}; else gear[cat].push({id,...item});
-  gear[cat].sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  gear[cat].sort((a,b)=>ns(a.name,b.name));
   closeOv("gear-modal");
   renderGear();
   if(!document.getElementById("pg-sku").classList.contains("hidden")) renderSku();
@@ -1937,7 +1942,7 @@ window.saveVenue=async function(){
   await fsWrite("venues",id,obj);
   const i=venues.findIndex(x=>x.id===id);
   if(i>-1) venues[i]={id,...obj}; else venues.push({id,...obj});
-  venues.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  venues.sort((a,b)=>ns(a.name,b.name));
   closeOv("venue-modal");
   renderVenues();
 };
@@ -1998,7 +2003,7 @@ window.saveDirector=async function(){
   await fsWrite("directors",id,obj);
   const i=directors.findIndex(x=>x.id===id);
   if(i>-1) directors[i]={id,...obj}; else directors.push({id,...obj});
-  directors.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  directors.sort((a,b)=>ns(a.name,b.name));
   closeOv("director-modal");
   renderDirectors();
 };
@@ -2029,7 +2034,7 @@ function getAllSkuCategories(){
     Object.values(skuLib)
       .map(v=>normaliseCategory(v.category||""))
       .filter(c=>c && !gcatLabels.includes(c))
-  )].sort();
+  )].sort((a,b)=>ns(a,b));
   return [...gcatLabels,...extra];
 }
 
@@ -2193,7 +2198,7 @@ function renderSkuLibTable(allItems){
   empty.classList.toggle("hidden",hasAny);
   if(!hasAny) return;
 
-  Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([cat,entries])=>{
+  Object.entries(grouped).sort((a,b)=>ns(a[0],b[0])).forEach(([cat,entries])=>{
     // Category header row — name + pencil icon to rename inline
     const catRow=document.createElement("tr");
     catRow.innerHTML=
@@ -2206,7 +2211,7 @@ function renderSkuLibTable(allItems){
     tbody.appendChild(catRow);
 
     // SKU rows — no category column, 4 columns: code, desc, status, products
-    entries.sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,data])=>{
+    entries.sort((a,b)=>ns(a[0],b[0])).forEach(([code,data])=>{
       const usedBy=allItems.filter(i=>i.sku===code);
       let aggStatus="ready";
       if(usedBy.some(i=>i.status==="broken")) aggStatus="broken";
@@ -2272,9 +2277,9 @@ window.openSkuAssignModal=function(itemId, itemCat){
     if(!grouped[grpKey]) grouped[grpKey]=[];
     grouped[grpKey].push({code, desc:data.desc||""});
   });
-  Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([grpCat,codes])=>{
+  Object.entries(grouped).sort((a,b)=>ns(a[0],b[0])).forEach(([grpCat,codes])=>{
     const grp=document.createElement("optgroup"); grp.label=grpCat;
-    codes.sort((a,b)=>a.code.localeCompare(b.code)).forEach(({code,desc})=>{
+    codes.sort((a,b)=>ns(a.code,b.code)).forEach(({code,desc})=>{
       const o=document.createElement("option");
       o.value=code; o.textContent=code+(desc?" — "+desc:"");
       if(item.sku===code) o.selected=true;
