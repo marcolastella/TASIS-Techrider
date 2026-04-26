@@ -977,12 +977,22 @@ table.ch-tbl{width:100%;border-collapse:collapse}
       <button class="modal-close" onclick="closeOv('ch-modal')">×</button>
     </div>
     <div class="form-row">
-      <div class="form-field"><label class="form-label">Name / Artist</label><input class="form-input" id="cm-name" placeholder="e.g. Lead Vocals"/></div>
-      <div class="form-field"><label class="form-label">Instrument</label><input class="form-input" id="cm-inst" placeholder="e.g. Vocal"/></div>
+      <div class="form-field">
+        <label class="form-label">Channel Name / Artist</label>
+        <input class="form-input" id="cm-name" placeholder="e.g. Lead Vocals, Rob — Trumpet"/>
+      </div>
     </div>
     <div class="form-row">
-      <div class="form-field" id="cm-iface-wrap">
-        <label class="form-label">Interface / Microphone</label>
+      <div class="form-field">
+        <label class="form-label">Instrument</label>
+        <select class="form-select" id="cm-inst">
+          <option value="">— Select from Gear Library —</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label">Microphone / DI Interface</label>
         <select class="form-select" id="cm-iface">
           <option value="">— Select from Gear Library —</option>
         </select>
@@ -994,7 +1004,12 @@ table.ch-tbl{width:100%;border-collapse:collapse}
       <label class="tog" onclick="tog('da')"><div class="tog-track" id="tt-da"><div class="tog-thumb"></div></div><span class="tog-label">Mic/DI Amp Out</span></label>
     </div>
     <div id="amp-row" class="form-row hidden">
-      <div class="form-field"><label class="form-label">Amp Model</label><input class="form-input" id="cm-amp" placeholder="e.g. Line 6 Helix"/></div>
+      <div class="form-field">
+        <label class="form-label">Amplifier</label>
+        <select class="form-select" id="cm-amp">
+          <option value="">— Select from Gear Library —</option>
+        </select>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeOv('ch-modal')">Cancel</button>
@@ -1443,27 +1458,30 @@ function renderInvFull(){
     "</div>":"";
 }
 
-function buildIfaceSelect(currentVal){
-  const sel=document.getElementById("cm-iface");
+/* ── Channel modal gear dropdowns ── */
+function buildGearSelect(selId, categories, currentVal){
+  const sel=document.getElementById(selId);
+  if(!sel) return;
   sel.innerHTML="<option value=''>— Select from Gear Library —</option>";
-  ["microphones","wireless","di_boxes","amplifiers","monitors","consoles","cables","accessories","power"].forEach(cat=>{
+  let hasItems=false;
+  categories.forEach(cat=>{
     const items=gear[cat]||[];
     if(!items.length) return;
+    hasItems=true;
     const grp=document.createElement("optgroup");
     grp.label=GCATS[cat]?GCATS[cat].l:cat;
     items.forEach(item=>{
       const opt=document.createElement("option");
-      const val=item.name+(item.notes?" — "+item.notes:"");
-      opt.value=val; opt.textContent=val;
-      if(val===currentVal) opt.selected=true;
+      opt.value=item.name; opt.textContent=item.name+(item.notes?" — "+item.notes:"");
+      if(item.name===currentVal) opt.selected=true;
       grp.appendChild(opt);
     });
     sel.appendChild(grp);
   });
-  const sep=document.createElement("option"); sep.disabled=true; sep.textContent="──────────";
-  sel.appendChild(sep);
-  const other=document.createElement("option"); other.value="_manual"; other.textContent="Type manually…";
-  sel.appendChild(other);
+  if(!hasItems){
+    const o=document.createElement("option"); o.disabled=true;
+    o.textContent="No items in library yet"; sel.appendChild(o);
+  }
 }
 
 window.openCHModal=function(idx){
@@ -1472,30 +1490,26 @@ window.openCHModal=function(idx){
   cms={st:ch?!!ch.st:false,ap:ch?!!ch.ap:false,da:ch?!!ch.da:false};
   document.getElementById("cm-title").textContent=ch?"Edit Channel":"Add Channel";
   document.getElementById("cm-name").value=ch?ch.name:"";
-  document.getElementById("cm-inst").value=ch?ch.inst:"";
-  document.getElementById("cm-amp").value=ch?ch.amp:"";
-  // If a previous open replaced select with input, restore the select first
-  const ifaceWrap=document.getElementById("cm-iface-wrap");
-  const existing=document.getElementById("cm-iface");
-  if(existing && existing.tagName==="INPUT"){
-    const sel=document.createElement("select");
-    sel.className="form-select"; sel.id="cm-iface";
-    ifaceWrap.replaceChild(sel,existing);
-  }
-  buildIfaceSelect(ch?ch.iface:"");
+
+  // Instrument — all gear categories
+  buildGearSelect("cm-inst",
+    ["microphones","wireless","di_boxes","amplifiers","monitors","consoles","cables","accessories","power"],
+    ch?ch.inst:"");
+
+  // Microphone / DI — only microphones, wireless, di_boxes
+  buildGearSelect("cm-iface",
+    ["microphones","wireless","di_boxes"],
+    ch?ch.iface:"");
+
+  // Amplifier — only amplifiers category
+  buildGearSelect("cm-amp",
+    ["amplifiers"],
+    ch?ch.amp:"");
+
   updateToggs();
-  const ifaceEl=document.getElementById("cm-iface");
-  if(ifaceEl.tagName==="SELECT"){
-    ifaceEl.onchange=function(){
-      if(this.value==="_manual"){
-        const inp=document.createElement("input");
-        inp.className="form-input"; inp.id="cm-iface"; inp.placeholder="e.g. SM58 (Dynamic)";
-        this.parentNode.replaceChild(inp,this);
-      }
-    };
-  }
   document.getElementById("ch-modal").classList.remove("hidden");
 };
+
 window.delChannel=async function(idx){
   if(!activeShow||!channels[activeShow]) return;
   const ch=channels[activeShow][idx]; if(!ch)return;
@@ -1508,15 +1522,20 @@ function updateToggs(){
 }
 window.saveCH=async function(){
   const name=document.getElementById("cm-name").value.trim(); if(!name)return;
-  const ifEl=document.getElementById("cm-iface");
-  const iface=(ifEl.value==="_manual"||ifEl.value==="")?"":ifEl.value;
   if(!activeShow) return;
   const chs=channels[activeShow]||[];
   const id=(editCHIdx!==null&&chs[editCHIdx])?chs[editCHIdx].id:("c"+Date.now());
   const order=(editCHIdx!==null&&chs[editCHIdx])?(chs[editCHIdx].order??editCHIdx):chs.length;
+  const instVal=document.getElementById("cm-inst").value;
+  const ifaceVal=document.getElementById("cm-iface").value;
+  const ampVal=document.getElementById("cm-amp").value;
   await fsWrite("shows",activeShow,
-    {name,inst:document.getElementById("cm-inst").value,iface,
-     st:cms.st,ap:cms.ap,da:cms.da,amp:document.getElementById("cm-amp").value,order},
+    {name,
+     inst:instVal,
+     iface:ifaceVal,
+     st:cms.st,ap:cms.ap,da:cms.da,
+     amp:ampVal,
+     order},
     "channels",id);
   closeOv("ch-modal");
 };
