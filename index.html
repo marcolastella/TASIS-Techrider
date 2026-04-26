@@ -2229,15 +2229,36 @@ window.saveSku=async function(){
   if(skuLib[code]&&!editingSkuCode){
     if(!confirm("SKU "+code+" already exists. Overwrite?")) return;
   }
+
+  // 1. Save updated SKU to /skus
   await fsWrite("skus",code,{desc,category:cat});
   skuLib[code]={desc,category:cat};
-  // If we renamed a code (editingSkuCode differs), delete the old one
+
+  // 2. If code changed, update every gear item that had the old code
   if(editingSkuCode && editingSkuCode!==code){
+    const allItems=getAllGearItems();
+    const affected=allItems.filter(i=>i.sku===editingSkuCode);
+    showSync("saving","Updating "+affected.length+" gear item(s)…");
+    for(const item of affected){
+      await fsWrite("gear",item.id,{sku:code});
+      const idx=gear[item._cat]?gear[item._cat].findIndex(x=>x.id===item.id):-1;
+      if(idx>-1) gear[item._cat][idx]={...gear[item._cat][idx],sku:code};
+    }
+    // Delete old SKU code from library
     await fsDel("skus",editingSkuCode);
     delete skuLib[editingSkuCode];
   }
+
+  // 3. If only desc/category changed, update gear items' local copy
+  //    so the gear library reflects fresh data (no Firestore write needed
+  //    since sku field on gear items didn't change)
+  if(editingSkuCode && editingSkuCode===code){
+    // Nothing to update on gear items — only skuLib changed
+  }
+
   closeOv("sku-builder-modal");
   renderSku();
+  if(!document.getElementById("pg-gear").classList.contains("hidden")) renderGear();
 };
 
 window.openSkuCatRenameModal=function(cat){
