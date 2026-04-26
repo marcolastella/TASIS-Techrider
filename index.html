@@ -756,10 +756,10 @@ table.ch-tbl{width:100%;border-collapse:collapse}
                 SKU Code Library
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <select class="sku-filter" id="sku-lib-cat-filter" style="width:170px" onchange="renderSku()">
+                <select class="sku-filter" id="sku-lib-cat-filter" style="width:170px" onchange="renderSkuLibOnly()">
                   <option value="">All categories</option>
                 </select>
-                <select class="sku-filter" id="sku-lib-status-filter" style="width:150px" onchange="renderSku()">
+                <select class="sku-filter" id="sku-lib-status-filter" style="width:150px" onchange="renderSkuLibOnly()">
                   <option value="">All statuses</option>
                   <option value="ready">Ready</option>
                   <option value="maintenance">Maintenance</option>
@@ -2006,6 +2006,10 @@ window.cycleSkuStatus=async function(code){
     if(!document.getElementById("pg-gear").classList.contains("hidden")) renderGear();
   }catch(e){ showSync("error","Update failed"); console.error(e); }
 };
+
+function renderSkuLibOnly(){
+  renderSkuLibTable(getAllGearItems());
+}
 
 function renderSkuLibTable(allItems){
   const catFilter = document.getElementById("sku-lib-cat-filter");
