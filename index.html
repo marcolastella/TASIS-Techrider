@@ -736,16 +736,30 @@ table.ch-tbl{width:100%;border-collapse:collapse}
           <!-- STATS BAR -->
           <div class="sku-stats" id="sku-stats"></div>
 
-          <!-- UNASSIGNED ITEMS -->
-          <div class="sku-col" style="margin-bottom:20px">
-            <div class="sku-col-header">
-              <div class="sku-col-title">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                Items without SKU
+          <!-- TWO BOXES -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+            <!-- Items without SKU -->
+            <div class="sku-col">
+              <div class="sku-col-header">
+                <div class="sku-col-title">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  No SKU assigned
+                </div>
+                <span class="sku-col-count" id="sku-unassigned-count">0</span>
               </div>
-              <span class="sku-col-count" id="sku-unassigned-count">0</span>
+              <div id="sku-unassigned-list" class="sku-item-list" style="max-height:260px"></div>
             </div>
-            <div id="sku-unassigned-list" class="sku-item-list" style="max-height:280px"></div>
+            <!-- Items in Maintenance -->
+            <div class="sku-col">
+              <div class="sku-col-header">
+                <div class="sku-col-title" style="color:var(--amber)">
+                  <svg viewBox="0 0 24 24" style="stroke:var(--amber)"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  Items in Maintenance
+                </div>
+                <span class="sku-col-count" id="sku-maintenance-count">0</span>
+              </div>
+              <div id="sku-maintenance-list" class="sku-item-list" style="max-height:260px"></div>
+            </div>
           </div>
 
           <!-- SKU LIBRARY TABLE -->
@@ -755,16 +769,11 @@ table.ch-tbl{width:100%;border-collapse:collapse}
                 <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
                 SKU Code Library
               </div>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <select class="sku-filter" id="sku-lib-cat-filter" style="width:170px" onchange="renderSkuLibOnly()">
-                  <option value="">All categories</option>
-                </select>
-                <select class="sku-filter" id="sku-lib-status-filter" style="width:150px" onchange="renderSkuLibOnly()">
-                  <option value="">All statuses</option>
-                  <option value="ready">Ready</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="broken">Broken</option>
-                </select>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input class="sku-filter" id="sku-lib-search" placeholder="Search SKU… press Enter" style="width:240px"
+                  onkeydown="if(event.key==='Enter') renderSkuLibOnly()"
+                  oninput="if(!this.value) renderSkuLibOnly()"/>
+                <button class="btn btn-sm" onclick="renderSkuLibOnly()" style="padding:6px 14px;font-size:12px">Search</button>
               </div>
             </div>
             <div class="sku-lib-table-wrap">
@@ -1937,11 +1946,13 @@ function renderSku(){
   const filter = "";  // filter removed — use category/status dropdowns in library table
 
   // Stats
+  const maintenance=items.filter(i=>i.status==="maintenance");
+  const broken=items.filter(i=>i.status==="broken");
   document.getElementById("sku-stats").innerHTML=
     skuStatCard(items.length,"Total Items",false)+
     skuStatCard(unassigned.length,"No SKU",unassigned.length>0)+
     skuStatCard(Object.keys(skuLib).length,"SKU Codes",false)+
-    skuStatCard(assigned.filter(i=>(i.status||"ready")==="maintenance").length+assigned.filter(i=>i.status==="broken").length,"Needs Attention",assigned.some(i=>i.status==="maintenance"||i.status==="broken"));
+    skuStatCard(maintenance.length+broken.length,"Needs Attention",(maintenance.length+broken.length)>0);
 
   // Unassigned list
   const ul = document.getElementById("sku-unassigned-list");
@@ -1963,6 +1974,40 @@ function renderSku(){
       row.appendChild(info); row.appendChild(badge); row.appendChild(stBadge); row.appendChild(acts);
       ul.appendChild(row);
     });
+  }
+
+  // Maintenance / broken list
+  const ml=document.getElementById("sku-maintenance-list");
+  const mc=document.getElementById("sku-maintenance-count");
+  if(ml&&mc){
+    const needsAttn=items.filter(i=>i.status==="maintenance"||i.status==="broken");
+    mc.textContent=needsAttn.length;
+    ml.innerHTML="";
+    if(!needsAttn.length){
+      ml.innerHTML="<div style='padding:20px;text-align:center;color:var(--t4);font-size:13px'>All items are operational</div>";
+    } else {
+      needsAttn.forEach(item=>{
+        const row=document.createElement("div"); row.className="sku-row";
+        const st=item.status||"ready";
+        const info=document.createElement("div"); info.className="sku-row-info";
+        info.innerHTML="<div class='sku-row-name'>"+item.name+"</div><div class='sku-row-cat'>"+item._catLabel+"</div>";
+        const stBadge=document.createElement("span");
+        stBadge.className="status-pill status-"+st;
+        stBadge.textContent=st==="broken"?"Broken":"Maintenance";
+        const acts=document.createElement("div"); acts.className="sku-row-action";
+        const btn=document.createElement("button"); btn.className="act-btn"; btn.textContent="→ Ready";
+        btn.addEventListener("click",async()=>{
+          await setDoc(doc(db,"gear",item.id),{status:"ready"},{merge:true});
+          const idx2=gear[item._cat]?gear[item._cat].findIndex(x=>x.id===item.id):-1;
+          if(idx2>-1) gear[item._cat][idx2]={...gear[item._cat][idx2],status:"ready"};
+          renderSku();
+          if(!document.getElementById("pg-gear").classList.contains("hidden")) renderGear();
+        });
+        acts.appendChild(btn);
+        row.appendChild(info); row.appendChild(stBadge); row.appendChild(acts);
+        ml.appendChild(row);
+      });
+    }
   }
 
   // SKU library table
@@ -2012,33 +2057,18 @@ function renderSkuLibOnly(){
 }
 
 function renderSkuLibTable(allItems){
-  const catFilter = document.getElementById("sku-lib-cat-filter");
-  const statusFilter = document.getElementById("sku-lib-status-filter");
-  const currentCat = catFilter ? catFilter.value : "";
-  const currentStatus = statusFilter ? statusFilter.value : "";
+  const searchEl=document.getElementById("sku-lib-search");
+  const q=(searchEl?searchEl.value:"").trim().toLowerCase();
 
-  // Refresh category dropdown from current skuLib
-  if(catFilter){
-    const cats=[...new Set(Object.values(skuLib).map(v=>v.category||"").filter(Boolean))].sort();
-    catFilter.innerHTML="<option value=''>All categories</option>";
-    cats.forEach(c=>{
-      const o=document.createElement("option"); o.value=c; o.textContent=c;
-      if(c===currentCat) o.selected=true;
-      catFilter.appendChild(o);
-    });
-    // Restore selected value after rebuild
-    if(currentCat) catFilter.value=currentCat;
-  }
-
-  const tbody = document.getElementById("sku-lib-body");
-  const empty = document.getElementById("sku-lib-empty");
+  const tbody=document.getElementById("sku-lib-body");
+  const empty=document.getElementById("sku-lib-empty");
   if(!tbody) return;
   tbody.innerHTML="";
 
-  // Group SKU codes by category
+  // Group SKU codes by category, filtered by search query
   const grouped={};
   Object.entries(skuLib).forEach(([code,data])=>{
-    if(currentCat && (data.category||"")!==currentCat) return;
+    if(q && !code.toLowerCase().includes(q) && !(data.desc||"").toLowerCase().includes(q) && !(data.category||"").toLowerCase().includes(q)) return;
     const cat=data.category||"Uncategorized";
     if(!grouped[cat]) grouped[cat]=[];
     grouped[cat].push([code,data]);
@@ -2049,18 +2079,6 @@ function renderSkuLibTable(allItems){
   if(!hasAny) return;
 
   Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([cat,entries])=>{
-    // Pre-filter entries by status so we don't render empty category headers
-    const visibleEntries=entries.filter(([code,data])=>{
-      const usedBy=allItems.filter(i=>i.sku===code);
-      if(!currentStatus) return true;
-      if(usedBy.length===0) return false;
-      const worstStatus=usedBy.some(i=>i.status==="broken")?"broken":
-                        usedBy.some(i=>i.status==="maintenance")?"maintenance":"ready";
-      return worstStatus===currentStatus;
-    });
-    if(!visibleEntries.length) return; // skip entire category if nothing matches
-
-    // Category separator row
     const catRow=document.createElement("tr");
     catRow.innerHTML=
       "<td colspan='5' style='padding:10px 14px 6px;background:var(--s3);border-bottom:1px solid var(--rim)'>"+
@@ -2071,16 +2089,13 @@ function renderSkuLibTable(allItems){
       "</td>";
     tbody.appendChild(catRow);
 
-    visibleEntries.sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,data])=>{
+    entries.sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,data])=>{
       const usedBy=allItems.filter(i=>i.sku===code);
-
-      // Aggregate status
       let aggStatus="ready";
       if(usedBy.some(i=>i.status==="broken")) aggStatus="broken";
       else if(usedBy.some(i=>i.status==="maintenance")) aggStatus="maintenance";
       else if(usedBy.length===0) aggStatus=null;
 
-      // Product names list
       const namesHtml=usedBy.length
         ? usedBy.map(i=>"<span style='display:inline-block;background:var(--s4);border:1px solid var(--rim);border-radius:4px;padding:1px 7px;font-size:11px;margin:2px 2px 0 0'>"+i.name+"</span>").join("")
         : "<span style='color:var(--t4);font-size:11px'>unused</span>";
@@ -2103,6 +2118,7 @@ function renderSkuLibTable(allItems){
     });
   });
 }
+
 
 // Event delegation for SKU library table interactions
 document.addEventListener("click",function(e){
