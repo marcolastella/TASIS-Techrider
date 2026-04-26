@@ -409,6 +409,8 @@ table.ch-tbl{width:100%;border-collapse:collapse}
 .status-pill{font-family:var(--mono);font-size:10px;font-weight:600;padding:3px 10px;border-radius:100px;letter-spacing:.5px;white-space:nowrap}
 .status-clickable{cursor:pointer;transition:opacity .15s;user-select:none}
 .status-clickable:hover{opacity:.75}
+.cat-edit-icon{cursor:pointer;opacity:.45;font-size:13px;line-height:1;user-select:none;transition:opacity .15s}
+.cat-edit-icon:hover{opacity:1}
 .status-ready{background:rgba(0,229,160,.1);color:var(--green);border:1px solid rgba(0,229,160,.25)}
 .status-maintenance{background:rgba(255,170,51,.1);color:var(--amber);border:1px solid rgba(255,170,51,.25)}
 .status-broken{background:rgba(255,68,102,.1);color:var(--red);border:1px solid rgba(255,68,102,.25)}
@@ -776,7 +778,6 @@ table.ch-tbl{width:100%;border-collapse:collapse}
                 <thead><tr>
                   <th>SKU CODE</th>
                   <th>DESCRIPTION</th>
-                  <th>CATEGORY</th>
                   <th>STATUS</th>
                   <th>PRODUCTS</th>
                   <th class="no-print"></th>
@@ -2082,17 +2083,14 @@ function renderSkuLibOnly(){
 }
 
 function renderSkuLibTable(allItems){
-
-
   const tbody=document.getElementById("sku-lib-body");
   const empty=document.getElementById("sku-lib-empty");
   if(!tbody) return;
   tbody.innerHTML="";
 
-  // Group SKU codes by category, filtered by search query
+  // Group by category
   const grouped={};
   Object.entries(skuLib).forEach(([code,data])=>{
-
     const cat=data.category||"Uncategorized";
     if(!grouped[cat]) grouped[cat]=[];
     grouped[cat].push([code,data]);
@@ -2103,16 +2101,18 @@ function renderSkuLibTable(allItems){
   if(!hasAny) return;
 
   Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([cat,entries])=>{
+    // Category header row — name + pencil icon to rename inline
     const catRow=document.createElement("tr");
     catRow.innerHTML=
-      "<td colspan='5' style='padding:10px 14px 6px;background:var(--s3);border-bottom:1px solid var(--rim)'>"+
-        "<div style='display:flex;align-items:center;justify-content:space-between'>"+
+      "<td colspan='4' style='padding:10px 14px 6px;background:var(--s3);border-bottom:1px solid var(--rim)'>"+
+        "<div style='display:flex;align-items:center;gap:8px' id='cat-hdr-"+cat.replace(/[^a-z0-9]/gi,"_")+"'>"+
           "<span style='font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:2px;text-transform:uppercase'>"+cat+"</span>"+
-          "<button class='act-btn no-print' style='font-size:10px;padding:2px 8px' data-rename-cat='"+cat.replace(/'/g,"\'")+"'>Rename</button>"+
+          "<span class='cat-edit-icon' data-edit-cat='"+cat+"' title='Rename category'>✎</span>"+
         "</div>"+
       "</td>";
     tbody.appendChild(catRow);
 
+    // SKU rows — no category column, 4 columns: code, desc, status, products
     entries.sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,data])=>{
       const usedBy=allItems.filter(i=>i.sku===code);
       let aggStatus="ready";
@@ -2132,16 +2132,9 @@ function renderSkuLibTable(allItems){
       const actTd=document.createElement("td"); actTd.className="no-print";
       actTd.style.cssText="display:flex;gap:4px";
       actTd.appendChild(editBtn); actTd.appendChild(delBtn);
-      const catDisplay=data.category||"—";
       tr.innerHTML=
         "<td><span class='sku-lib-code'>"+code+"</span></td>"+
         "<td class='sku-lib-desc'>"+(data.desc||"—")+"</td>"+
-        "<td class='sku-lib-cat-cell' id='sku-cat-cell-"+code+"'>"+
-          "<div style='display:flex;align-items:center;gap:6px'>"+
-            "<span class='sku-lib-cat-text'>"+catDisplay+"</span>"+
-            "<button class='act-btn' style='font-size:10px;padding:2px 7px' data-edit-cat='"+code+"'>Edit</button>"+
-          "</div>"+
-        "</td>"+
         "<td>"+(aggStatus?clickableStatusPill(code,aggStatus):"<span style='color:var(--t4);font-size:11px'>—</span>")+"</td>"+
         "<td style='max-width:260px'>"+namesHtml+"</td>";
       tr.appendChild(actTd);
@@ -2157,8 +2150,8 @@ document.addEventListener("click",function(e){
   if(cycle){ window.cycleSkuStatus(cycle.getAttribute("data-sku-cycle")); return; }
   const rename=e.target.closest("[data-rename-cat]");
   if(rename){ window.openSkuCatRenameModal(rename.getAttribute("data-rename-cat")); return; }
-  const editCat=e.target.closest("[data-edit-cat]");
-  if(editCat){ window.editSkuCatInline(editCat.getAttribute("data-edit-cat")); }
+  const editCat=e.target.closest(".cat-edit-icon[data-edit-cat]");
+  if(editCat){ window.editCatInline(editCat.getAttribute("data-edit-cat"),editCat); }
 });
 
 function skuStatCard(val,lbl,warn){
@@ -2351,35 +2344,52 @@ window.deleteSkuCode=async function(code){
 };
 
 /* ─── INLINE SKU CATEGORY EDIT ──────────────────────── */
-window.editSkuCatInline=function(code){
-  const cell=document.getElementById("sku-cat-cell-"+code);
-  if(!cell) return;
-  const current=skuLib[code]?skuLib[code].category||"":"";
-  // Build inline select
-  const wrap=document.createElement("div"); wrap.style.cssText="display:flex;gap:5px;align-items:center";
-  const sel=document.createElement("select"); sel.className="form-select"; sel.style.cssText="font-size:12px;padding:4px 8px;height:auto";
+window.editCatInline=function(cat, iconEl){
+  // Find the parent div of the pencil icon and replace with input + save/cancel
+  const hdrDiv=iconEl.parentElement;
+  if(!hdrDiv) return;
+  const sel=document.createElement("select");
+  sel.className="form-select";
+  sel.style.cssText="font-size:12px;padding:4px 8px;height:auto;max-width:200px";
   getAllSkuCategories().forEach(c=>{
     const o=document.createElement("option"); o.value=c; o.textContent=c;
-    if(c===normaliseCategory(current)) o.selected=true;
+    if(c===cat) o.selected=true;
     sel.appendChild(o);
   });
-  const saveBtn=document.createElement("button"); saveBtn.className="act-btn"; saveBtn.textContent="Save";
-  saveBtn.style.cssText="font-size:10px;padding:2px 8px";
-  const cancelBtn=document.createElement("button"); cancelBtn.className="act-btn"; cancelBtn.textContent="✕";
-  cancelBtn.style.cssText="font-size:10px;padding:2px 6px";
+  // Also allow typing a new name
+  const inp=document.createElement("input");
+  inp.className="form-input";
+  inp.style.cssText="font-size:12px;padding:4px 8px;height:auto;max-width:180px;font-family:var(--mono)";
+  inp.value=cat; inp.placeholder="New category name";
+  const saveBtn=document.createElement("button"); saveBtn.className="act-btn";
+  saveBtn.textContent="Save"; saveBtn.style.cssText="font-size:10px;padding:2px 8px";
+  const cancelBtn=document.createElement("button"); cancelBtn.className="act-btn";
+  cancelBtn.textContent="✕"; cancelBtn.style.cssText="font-size:10px;padding:2px 6px";
+  hdrDiv.innerHTML="";
+  const lbl=document.createElement("span");
+  lbl.style.cssText="font-family:var(--mono);font-size:9px;color:var(--t4);letter-spacing:2px;margin-right:4px";
+  lbl.textContent="RENAME:";
+  hdrDiv.appendChild(lbl); hdrDiv.appendChild(inp); hdrDiv.appendChild(saveBtn); hdrDiv.appendChild(cancelBtn);
+  inp.focus(); inp.select();
   saveBtn.addEventListener("click",async()=>{
-    const newCat=normaliseCategory(sel.value);
-    showSync("saving","Saving…");
+    const newName=normaliseCategory(inp.value.trim());
+    if(!newName||newName===cat){ renderSkuLibTable(getAllGearItems()); return; }
+    showSync("saving","Renaming…");
     try{
-      await setDoc(doc(db,"skus",code),{category:newCat},{merge:true});
-      if(skuLib[code]) skuLib[code].category=newCat; else skuLib[code]={category:newCat};
-      showSync("saved","Saved ✓");
+      // Update all SKU codes with this category
+      for(const [code,data] of Object.entries(skuLib)){
+        if((data.category||"")=== cat){
+          await setDoc(doc(db,"skus",code),{category:newName},{merge:true});
+          skuLib[code]={...data,category:newName};
+        }
+      }
+      // Update GCATS label if it matches
+      Object.values(GCATS).forEach(v=>{ if(v.l===cat) v.l=newName; });
+      showSync("saved","Renamed ✓");
       renderSkuLibTable(getAllGearItems());
     }catch(e){ showSync("error","Error"); console.error(e); }
   });
   cancelBtn.addEventListener("click",()=>renderSkuLibTable(getAllGearItems()));
-  wrap.appendChild(sel); wrap.appendChild(saveBtn); wrap.appendChild(cancelBtn);
-  cell.innerHTML=""; cell.appendChild(wrap);
 };
 
 /* ─── UTILS ──────────────────────────────────────────── */
