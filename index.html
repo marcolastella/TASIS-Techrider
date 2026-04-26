@@ -413,6 +413,34 @@ table.ch-tbl{width:100%;border-collapse:collapse}
 .status-maintenance{background:rgba(255,170,51,.1);color:var(--amber);border:1px solid rgba(255,170,51,.25)}
 .status-broken{background:rgba(255,68,102,.1);color:var(--red);border:1px solid rgba(255,68,102,.25)}
 .status-unknown{background:var(--s4);color:var(--t4);border:1px solid var(--rim)}
+.sku-setup-tab{
+  background:transparent;border:none;border-bottom:2px solid transparent;
+  color:var(--t3);font-size:12px;font-family:var(--mono);letter-spacing:1px;
+  padding:8px 16px;cursor:pointer;transition:all .15s;
+}
+.sku-setup-tab:hover{color:var(--t2)}
+.sku-setup-tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.sst-row{
+  display:grid;grid-template-columns:130px 1fr 130px auto;
+  gap:8px;align-items:center;padding:7px 0;
+  border-bottom:1px solid var(--line,var(--rim));font-size:13px;
+}
+.sst-row:last-child{border-bottom:none}
+.sst-code{font-family:var(--mono);font-weight:600;color:var(--cyan);font-size:12px}
+.sst-input{
+  background:var(--s3);border:1px solid var(--rim);border-radius:5px;
+  color:var(--t1);font-size:12px;padding:5px 8px;outline:none;width:100%;
+  transition:border-color .15s;
+}
+.sst-input:focus{border-color:var(--cyan)}
+.sst-input.mono{font-family:var(--mono);letter-spacing:1px}
+.sst-cat-row{
+  display:grid;grid-template-columns:1fr 1fr auto;
+  gap:8px;align-items:center;padding:7px 0;
+  border-bottom:1px solid var(--rim);
+}
+.sst-cat-row:last-child{border-bottom:none}
+.sst-label{font-size:11px;color:var(--t3);font-family:var(--mono)}
 .sku-preview{
   font-family:var(--mono);font-size:20px;font-weight:700;color:var(--cyan);
   letter-spacing:2px;padding:12px 16px;background:var(--s3);
@@ -730,7 +758,10 @@ table.ch-tbl{width:100%;border-collapse:collapse}
               <div class="page-title">SKU Manager</div>
               <div class="page-sub">Manage inventory codes across your entire gear library</div>
             </div>
-            <button class="btn-shimmer no-print" onclick="openSkuBuilderModal()">+ New SKU</button>
+            <div style="display:flex;gap:10px;align-items:center">
+              <button class="btn-shimmer no-print" onclick="openSkuBuilderModal()">+ New SKU</button>
+              <button class="btn no-print" onclick="openSkuSetup()" style="border-color:var(--rim2);color:var(--t2);font-size:13px;padding:10px 20px;border-radius:12px">⚙ SKU Setup</button>
+            </div>
           </div>
 
           <!-- STATS BAR -->
@@ -887,6 +918,32 @@ table.ch-tbl{width:100%;border-collapse:collapse}
     <div class="modal-footer">
       <button class="btn" onclick="closeOv('director-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveDirector()">Save Director</button>
+    </div>
+  </div>
+</div>
+
+<!-- SKU Setup Modal -->
+<div class="modal-overlay hidden" id="sku-setup-modal">
+  <div class="modal" style="max-width:680px;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 0">
+      <div class="modal-title">SKU Setup</div>
+      <button class="modal-close" onclick="closeOv('sku-setup-modal')">×</button>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--rim);padding:0 24px;margin-top:14px">
+      <button class="sku-setup-tab active" id="sst-codes" onclick="skuSetupTab('codes')">SKU Codes</button>
+      <button class="sku-setup-tab" id="sst-cats" onclick="skuSetupTab('cats')">Categories</button>
+    </div>
+    <!-- SKU Codes tab -->
+    <div id="sst-panel-codes" style="padding:16px 24px 0;max-height:520px;overflow-y:auto">
+      <div id="sst-codes-list"></div>
+    </div>
+    <!-- Categories tab -->
+    <div id="sst-panel-cats" class="hidden" style="padding:16px 24px 0;max-height:520px;overflow-y:auto">
+      <div id="sst-cats-list"></div>
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid var(--rim);margin-top:12px;display:flex;justify-content:flex-end">
+      <button class="btn" onclick="closeOv('sku-setup-modal')">Done</button>
     </div>
   </div>
 </div>
@@ -2260,6 +2317,174 @@ window.saveSku=async function(){
   renderSku();
   if(!document.getElementById("pg-gear").classList.contains("hidden")) renderGear();
 };
+
+/* ── SKU SETUP MODAL ── */
+window.openSkuSetup=function(){
+  document.getElementById("sku-setup-modal").classList.remove("hidden");
+  skuSetupTab("codes");
+};
+
+window.skuSetupTab=function(tab){
+  ["codes","cats"].forEach(t=>{
+    document.getElementById("sst-"+t).classList.toggle("active",t===tab);
+    document.getElementById("sst-panel-"+t).classList.toggle("hidden",t!==tab);
+  });
+  if(tab==="codes") renderSkuSetupCodes();
+  else renderSkuSetupCats();
+};
+
+function renderSkuSetupCodes(){
+  const el=document.getElementById("sst-codes-list"); el.innerHTML="";
+  if(!Object.keys(skuLib).length){
+    el.innerHTML="<div style='padding:20px;text-align:center;color:var(--t4);font-size:13px'>No SKU codes yet</div>";
+    return;
+  }
+  // Header
+  const hdr=document.createElement("div"); hdr.className="sst-row";
+  hdr.style.cssText="font-family:var(--mono);font-size:9px;color:var(--t4);letter-spacing:2px;padding-bottom:10px;border-bottom:1px solid var(--rim)";
+  hdr.innerHTML="<div>CODE</div><div>DESCRIPTION</div><div>CATEGORY</div><div></div>";
+  el.appendChild(hdr);
+  Object.entries(skuLib).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,data])=>{
+    const row=document.createElement("div"); row.className="sst-row"; row.dataset.code=code;
+    const cats=getAllSkuCategories();
+    const catOpts=cats.map(c=>"<option value='"+c+"'"+(c===(data.category||"")?" selected":"")+"'>"+c+"</option>").join("");
+    row.innerHTML=
+      "<div><input class='sst-input mono' value='"+code+"' data-orig-code='"+code+"' placeholder='CODE' oninput='this.value=this.value.toUpperCase()'/></div>"+
+      "<div><input class='sst-input' value='"+(data.desc||"").replace(/'/g,"&#39;")+"' placeholder='Description'/></div>"+
+      "<div><select class='sst-input'><option value=''>—</option>"+catOpts+"</select></div>"+
+      "<div style='display:flex;gap:4px'>"+
+        "<button class='act-btn' onclick='saveSkuSetupRow(this)'>Save</button>"+
+        "<button class='act-btn del' onclick='deleteSkuSetupCode(this)'>×</button>"+
+      "</div>";
+    el.appendChild(row);
+  });
+}
+
+function getAllSkuCategories(){
+  return [...new Set(Object.values(skuLib).map(v=>v.category||"").filter(Boolean))].sort();
+}
+
+function renderSkuSetupCats(){
+  const el=document.getElementById("sst-cats-list"); el.innerHTML="";
+  const cats=getAllSkuCategories();
+  if(!cats.length){
+    el.innerHTML="<div style='padding:20px;text-align:center;color:var(--t4);font-size:13px'>No categories yet — create SKU codes first</div>";
+    return;
+  }
+  const hdr=document.createElement("div"); hdr.className="sst-cat-row";
+  hdr.style.cssText="font-family:var(--mono);font-size:9px;color:var(--t4);letter-spacing:2px;padding-bottom:10px;border-bottom:1px solid var(--rim)";
+  hdr.innerHTML="<div>CURRENT NAME</div><div>NEW NAME</div><div></div>";
+  el.appendChild(hdr);
+  cats.forEach(cat=>{
+    const row=document.createElement("div"); row.className="sst-cat-row";
+    const pill=document.createElement("span"); pill.className="pill pill-muted"; pill.style.fontFamily="var(--mono)"; pill.textContent=cat;
+    const inp=document.createElement("input"); inp.className="sst-input"; inp.value=cat; inp.placeholder="New name";
+    const btns=document.createElement("div"); btns.style.cssText="display:flex;gap:4px";
+    const saveBtn=document.createElement("button"); saveBtn.className="act-btn"; saveBtn.textContent="Rename";
+    saveBtn.addEventListener("click",()=>saveSkuSetupCat(cat,inp.value.trim()));
+    const delBtn=document.createElement("button"); delBtn.className="act-btn del"; delBtn.textContent="×";
+    delBtn.addEventListener("click",()=>deleteSkuSetupCat(cat));
+    btns.appendChild(saveBtn); btns.appendChild(delBtn);
+    row.appendChild(pill); row.appendChild(inp); row.appendChild(btns);
+    el.appendChild(row);
+  });
+}
+
+window.saveSkuSetupRow=async function(btn){
+  const row=btn.closest(".sst-row");
+  const inputs=row.querySelectorAll("input,select");
+  const newCode=(inputs[0].value||"").trim().toUpperCase();
+  const origCode=inputs[0].dataset.origCode;
+  const newDesc=(inputs[1].value||"").trim();
+  const newCat=(inputs[2].value||"").trim();
+  if(!newCode) return;
+  showSync("saving","Saving…");
+  try{
+    // Save updated/new SKU to library
+    await fsWrite("skus",newCode,{desc:newDesc,category:newCat});
+    skuLib[newCode]={desc:newDesc,category:newCat};
+    // If code changed, update all gear items and delete old
+    if(origCode && origCode!==newCode){
+      const affected=getAllGearItems().filter(i=>i.sku===origCode);
+      for(const item of affected){
+        await fsWrite("gear",item.id,{sku:newCode});
+        const idx=gear[item._cat]?gear[item._cat].findIndex(x=>x.id===item.id):-1;
+        if(idx>-1) gear[item._cat][idx]={...gear[item._cat][idx],sku:newCode};
+      }
+      await fsDel("skus",origCode);
+      delete skuLib[origCode];
+    }
+    showSync("saved","Saved ✓");
+    inputs[0].dataset.origCode=newCode;
+    renderSkuLibTable(getAllGearItems());
+    if(!document.getElementById("pg-gear").classList.contains("hidden")) renderGear();
+  }catch(e){ showSync("error","Error"); console.error(e); }
+};
+
+window.deleteSkuSetupCode=async function(btn){
+  const row=btn.closest(".sst-row");
+  const code=row.querySelector("input").dataset.origCode;
+  const used=getAllGearItems().filter(i=>i.sku===code).length;
+  const msg=used?"SKU "+code+" is used by "+used+" item(s). Delete anyway?":"Delete SKU "+code+"?";
+  if(!confirm(msg)) return;
+  showSync("saving","Deleting…");
+  try{
+    // Clear sku from gear items
+    const affected=getAllGearItems().filter(i=>i.sku===code);
+    for(const item of affected){
+      await fsWrite("gear",item.id,{sku:""});
+      const idx=gear[item._cat]?gear[item._cat].findIndex(x=>x.id===item.id):-1;
+      if(idx>-1) gear[item._cat][idx]={...gear[item._cat][idx],sku:""};
+    }
+    await fsDel("skus",code);
+    delete skuLib[code];
+    showSync("saved","Deleted ✓");
+    row.remove();
+    renderSkuLibTable(getAllGearItems());
+    if(!document.getElementById("pg-gear").classList.contains("hidden")) renderGear();
+  }catch(e){ showSync("error","Error"); console.error(e); }
+};
+
+async function saveSkuSetupCat(oldName,newName){
+  if(!newName||newName===oldName) return;
+  showSync("saving","Renaming…");
+  try{
+    // Update all SKU codes with this category
+    const updates=Object.entries(skuLib).filter(([,d])=>d.category===oldName);
+    for(const [code,data] of updates){
+      await setDoc(doc(db,"skus",code),{category:newName},{merge:true});
+      skuLib[code]={...data,category:newName};
+    }
+    // Update gear items that stored category as label
+    const affected=getAllGearItems().filter(i=>i.category===oldName);
+    for(const item of affected){
+      await setDoc(doc(db,"gear",item.id),{category:newName},{merge:true});
+      const idx=gear[item._cat]?gear[item._cat].findIndex(x=>x.id===item.id):-1;
+      if(idx>-1) gear[item._cat][idx]={...gear[item._cat][idx],category:newName};
+    }
+    Object.entries(GCATS).forEach(([k,v])=>{ if(v.l===oldName) v.l=newName; });
+    showSync("saved","Renamed ✓");
+    renderSkuSetupCats();
+    renderSkuLibTable(getAllGearItems());
+  }catch(e){ showSync("error","Error"); console.error(e); }
+}
+
+async function deleteSkuSetupCat(catName){
+  const skuCount=Object.values(skuLib).filter(d=>d.category===catName).length;
+  if(!confirm("Delete category '"+catName+"'? This will remove it from "+skuCount+" SKU code(s).")) return;
+  showSync("saving","Deleting…");
+  try{
+    // Remove category from all SKU codes in this cat
+    const updates=Object.entries(skuLib).filter(([,d])=>d.category===catName);
+    for(const [code,data] of updates){
+      await setDoc(doc(db,"skus",code),{category:""},{merge:true});
+      skuLib[code]={...data,category:""};
+    }
+    showSync("saved","Deleted ✓");
+    renderSkuSetupCats();
+    renderSkuLibTable(getAllGearItems());
+  }catch(e){ showSync("error","Error"); console.error(e); }
+}
 
 window.openSkuCatRenameModal=function(cat){
   document.getElementById("scrm-old").value=cat;
